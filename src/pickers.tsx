@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { fmt12, isoDate } from './data';
+import { CITIES, GARAGES, fmt12, isoDate } from './data';
 import { Icon } from './icons';
 import { Sheet } from './ui';
 
@@ -264,6 +264,85 @@ export function TimeField({ label, value, onChange }: { label: string; value: st
         </div>
         <div className="tiny muted center" style={{ marginTop: -6, marginBottom: 10 }}>اسحب العقرب بإصبعك أو اضغط على الرقم</div>
         <button className="btn" onClick={() => { onChange(to24()); setOpen(false); }}>تم · {fmt12(to24())}</button>
+      </Sheet>
+    </>
+  );
+}
+
+/** City chooser in the app's style: shows the city as text, opens a sheet with the list. */
+export function CityPicker({ label, value, onChange, exclude, excludeNote = 'مختارة بالطرف الثاني', id, variant = 'route' }: { label: string; value: string; onChange: (c: string) => void; exclude?: string; excludeNote?: string; id?: string; variant?: 'route' | 'field' }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      {variant === 'route' ? (
+        <button id={id} className="city-btn" onClick={() => setOpen(true)} aria-label={`${label}: ${value}`}>
+          <span className="df-label">{label}</span>
+          <span className="route-select">{value}</span>
+        </button>
+      ) : (
+        <button id={id} className="datefield" onClick={() => setOpen(true)}>
+          <span className="df-ic"><Icon name="pin" size={20} /></span>
+          <span className="grow">
+            <span className="df-label">{label}</span>
+            <span className="df-value">{value}</span>
+          </span>
+          <Icon name="forward" size={16} />
+        </button>
+      )}
+      <Sheet open={open} onClose={() => setOpen(false)} label={label}>
+        <h2 className="h3" style={{ marginBottom: 10 }}>{label}</h2>
+        <div className="city-grid">
+          {CITIES.map((c) => {
+            const off = c === exclude;
+            const count = GARAGES.filter((g) => g.city === c).length;
+            return (
+              <button key={c} className={`city-opt ${c === value ? 'on' : ''}`} disabled={off} onClick={() => { onChange(c); setOpen(false); }}>
+                <span className="city-ic"><Icon name="pin" size={18} /></span>
+                <span className="grow" style={{ textAlign: 'right' }}>
+                  <span className="bold" style={{ display: 'block' }}>{c}</span>
+                  <span className="tiny muted">{off ? excludeNote : `${count} ${count === 1 ? 'كراج' : 'كراجات'}`}</span>
+                </span>
+                {c === value ? <Icon name="check" size={18} stroke={3} /> : null}
+              </button>
+            );
+          })}
+        </div>
+      </Sheet>
+    </>
+  );
+}
+
+/** "Choose the departure garage" box; opens the city's garages in a sheet. */
+export function GarageField({ label, city, value, onChange }: { label: string; city: string; value: string; onChange: (id: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const list = GARAGES.filter((g) => g.city === city);
+  const chosen = list.find((g) => g.id === value);
+  return (
+    <>
+      <button className={`datefield ${chosen ? '' : 'is-empty'}`} onClick={() => setOpen(true)} style={{ height: 'auto', minHeight: 64, padding: '10px 14px' }}>
+        <span className="df-ic"><Icon name="bus" size={20} /></span>
+        <span className="grow">
+          <span className="df-label">{label}</span>
+          <span className="df-value">{chosen ? chosen.name : 'اختار كراج الانطلاق'}</span>
+          {chosen ? <span className="tiny muted" style={{ display: 'block' }}>{chosen.address}</span> : null}
+        </span>
+        <Icon name="forward" size={16} />
+      </button>
+      <Sheet open={open} onClose={() => setOpen(false)} label={label}>
+        <h2 className="h3">كراجات {city}</h2>
+        <div className="small muted" style={{ marginBottom: 10 }}>اختار الكراج اللي تطلع منه</div>
+        <div className="stack gap8">
+          {list.map((g) => (
+            <button key={g.id} className={`garage-opt ${g.id === value ? 'on' : ''}`} onClick={() => { onChange(g.id); setOpen(false); }}>
+              <span className="city-ic"><Icon name="pin" size={20} /></span>
+              <span className="grow" style={{ textAlign: 'right' }}>
+                <span className="bold" style={{ display: 'block' }}>{g.name}</span>
+                <span className="tiny muted">{g.address} · {g.hours}</span>
+              </span>
+              {g.id === value ? <span className="pick-check"><Icon name="check" size={16} stroke={3} /></span> : null}
+            </button>
+          ))}
+        </div>
       </Sheet>
     </>
   );

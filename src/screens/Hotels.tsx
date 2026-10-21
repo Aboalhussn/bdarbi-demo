@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { CITIES, HOTELS, money, todayIso } from '../data';
-import { DateField, RangeField, addDays, nightsBetween, prettyDate, shortDate } from '../pickers';
+import { HOTELS, money, todayIso } from '../data';
+import { CityPicker, DateField, RangeField, addDays, nightsBetween, prettyDate, shortDate } from '../pickers';
 import { Icon } from '../icons';
 import { useStore } from '../store';
 import { Sheet, Stars, TopBar, openExternal } from '../ui';
@@ -149,12 +149,7 @@ export function Coaster() {
           <img src="./img/driver.png" alt="" style={{ height: 84 }} />
           <div className="small" style={{ lineHeight: 1.7 }}>كوستر كامل الك ولجماعتك، يطلع من الوقت والمكان اللي تريده.</div>
         </div>
-        <div className="field">
-          <label htmlFor="cto">الوجهة</label>
-          <select id="cto" className="input" value={to} onChange={(e) => setTo(e.target.value)}>
-            {CITIES.filter((c) => c !== 'بغداد').map((c) => <option key={c}>{c}</option>)}
-          </select>
-        </div>
+        <CityPicker id="cto" variant="field" label="الوجهة" value={to} exclude="بغداد" excludeNote="الكوستر يطلع منها" onChange={setTo} />
         <DateField label="تاريخ الرحلة" value={date} min={todayIso()} onChange={setDate} />
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <span className="label">عدد الأشخاص</span>

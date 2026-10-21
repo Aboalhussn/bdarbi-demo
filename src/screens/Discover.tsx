@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Share } from '@capacitor/share';
 import { Capacitor } from '@capacitor/core';
-import { CITIES, DESTINATIONS, GARAGES, TRIPS, dayList, departedToday, distanceKm, garageById, longDate, money, todayIso, type Garage, type Trip } from '../data';
+import { DESTINATIONS, GARAGES, TRIPS, dayList, departedToday, distanceKm, garageById, longDate, money, todayIso, type Garage, type Trip } from '../data';
 import { Icon } from '../icons';
 import { tripOf, useStore, type Booking } from '../store';
 import { Sheet, Stars, TabBar, Time, TopBar, openExternal } from '../ui';
-import { DateField, prettyDate } from '../pickers';
+import { CityPicker, DateField, prettyDate } from '../pickers';
 import { Avatar } from './Account';
 
 function seatsLeft(t: Trip, mine = 0) {
@@ -289,20 +289,14 @@ export function Search() {
               <div className="route-row">
                 <span className="route-dot" />
                 <div className="grow">
-                  <label className="df-label" htmlFor="from">من</label>
-                  <select id="from" className="route-select" value={from} onChange={(e) => { setFrom(e.target.value); touch(); }}>
-                    {CITIES.map((c) => <option key={c}>{c}</option>)}
-                  </select>
+                  <CityPicker id="from" label="من" value={from} exclude={to} onChange={(c) => { setFrom(c); touch(); }} />
                 </div>
               </div>
               <div className="route-line" />
               <div className="route-row">
                 <span className="route-dot gold" />
                 <div className="grow">
-                  <label className="df-label" htmlFor="to">إلى</label>
-                  <select id="to" className="route-select" value={to} onChange={(e) => { setTo(e.target.value); touch(); }}>
-                    {CITIES.map((c) => <option key={c}>{c}</option>)}
-                  </select>
+                  <CityPicker id="to" label="إلى" value={to} exclude={from} onChange={(c) => { setTo(c); touch(); }} />
                 </div>
               </div>
               <button className="route-swap" aria-label="بدّل الاتجاه" onClick={() => { setFrom(to); setTo(from); touch(); }}>

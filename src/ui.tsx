@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import QRCode from 'qrcode';
 import { Capacitor } from '@capacitor/core';
 import { Icon } from './icons';
@@ -72,13 +73,16 @@ export function TabBar({ active, driver = false }: { active: string; driver?: bo
 
 export function Sheet({ open, onClose, children, label }: { open: boolean; onClose: () => void; children: ReactNode; label: string }) {
   if (!open) return null;
-  return (
+  // Rendered at the app's root so a sheet always covers the whole screen, wherever it is opened from.
+  const host = document.querySelector('.app') ?? document.body;
+  return createPortal(
     <div className="sheet-back" onClick={onClose} role="presentation">
       <div className="sheet" role="dialog" aria-label={label} onClick={(e) => e.stopPropagation()}>
         <div className="grab" />
         {children}
       </div>
-    </div>
+    </div>,
+    host,
   );
 }
 

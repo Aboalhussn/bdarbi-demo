@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import jsQR from 'jsqr';
 import { CITIES, DRIVER_TRIP_ID, DRIVER_VEHICLE, GARAGES, addHours, fmt12, garageById, longDate, money, routeInfo, todayIso, tripById } from '../data';
-import { DateField, TimeField, addDays } from '../pickers';
+import { CityPicker, DateField, GarageField, TimeField, addDays } from '../pickers';
 import { Icon } from '../icons';
 import { useStore, type Booking, type ScanOutcome } from '../store';
 import { Sheet, TabBar, Time, TopBar } from '../ui';
@@ -441,32 +441,12 @@ function garagesIn(city: string) {
   return GARAGES.filter((g) => g.city === city);
 }
 
-function GaragePick({ label, city, value, onChange }: { label: string; city: string; value: string; onChange: (id: string) => void }) {
-  const list = garagesIn(city);
-  return (
-    <div className="stack gap6">
-      <span className="label">{label}</span>
-      <div className="stack gap6">
-        {list.map((g) => (
-          <button key={g.id} role="radio" aria-checked={value === g.id} className={`radio ${value === g.id ? 'on' : ''}`} style={{ height: 58 }} onClick={() => onChange(g.id)}>
-            <span className="dot" />
-            <span className="grow">
-              <span className="bold" style={{ display: 'block' }}>{g.name}</span>
-              <span className="tiny muted">{g.address}</span>
-            </span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export function DriverAddTrip() {
   const { driverTrips, set, back, showToast } = useStore();
   const [from, setFrom] = useState('بغداد');
   const [to, setTo] = useState('البصرة');
-  const [fromGarage, setFromGarage] = useState(garagesIn('بغداد')[0].id);
-  const [toGarage, setToGarage] = useState(garagesIn('البصرة')[0].id);
+  const [fromGarage, setFromGarage] = useState('');
+  const [toGarage, setToGarage] = useState('');
   const [round, setRound] = useState(false);
   const [date, setDate] = useState(addDays(todayIso(), 1));
   const [time, setTime] = useState('08:00');
@@ -483,17 +463,17 @@ export function DriverAddTrip() {
 
   const changeFrom = (c: string) => {
     setFrom(c);
-    setFromGarage(garagesIn(c)[0]?.id ?? '');
+    setFromGarage(garagesIn(c).length === 1 ? garagesIn(c)[0].id : '');
     if (c === to) {
       const other = CITIES.find((x) => x !== c)!;
       setTo(other);
-      setToGarage(garagesIn(other)[0]?.id ?? '');
+      setToGarage('');
     }
     setErr('');
   };
   const changeTo = (c: string) => {
     setTo(c);
-    setToGarage(garagesIn(c)[0]?.id ?? '');
+    setToGarage(garagesIn(c).length === 1 ? garagesIn(c)[0].id : '');
     setErr('');
   };
 
@@ -507,7 +487,8 @@ export function DriverAddTrip() {
   const save = () => {
     const p = Number(price.replace(/[^0-9]/g, ''));
     if (!p || p < 1000) return setErr('اكتب سعر المقعد');
-    if (!fromGarage || !toGarage) return setErr('اختار الكراج');
+    if (!fromGarage) return setErr(`اختار كراج الانطلاق في ${from}`);
+    if (round && !toGarage) return setErr(`اختار كراج الانطلاق للإياب في ${to}`);
     const now = new Date();
     const nowAbs = toAbs(todayIso(), `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
     const legs = [{ label: `${from} ← ${to}`, date, time, start: toAbs(date, time) }];
@@ -555,25 +536,19 @@ export function DriverAddTrip() {
           <div className="route-row">
             <span className="route-dot" />
             <div className="grow">
-              <label className="df-label" htmlFor="dfrom">من</label>
-              <select id="dfrom" className="route-select" value={from} onChange={(e) => changeFrom(e.target.value)}>
-                {CITIES.map((c) => <option key={c}>{c}</option>)}
-              </select>
+              <CityPicker id="dfrom" label="من" value={from} onChange={changeFrom} />
             </div>
           </div>
           <div className="route-line" />
           <div className="route-row">
             <span className="route-dot gold" />
             <div className="grow">
-              <label className="df-label" htmlFor="dto">إلى</label>
-              <select id="dto" className="route-select" value={to} onChange={(e) => changeTo(e.target.value)}>
-                {CITIES.filter((c) => c !== from).map((c) => <option key={c}>{c}</option>)}
-              </select>
+              <CityPicker id="dto" label="إلى" value={to} exclude={from} onChange={changeTo} />
             </div>
           </div>
         </div>
 
-        <GaragePick label={`كراج الانطلاق في ${from}`} city={from} value={fromGarage} onChange={(id) => { setFromGarage(id); setErr(''); }} />
+        <GarageField label={`كراج الانطلاق في ${from}`} city={from} value={fromGarage} onChange={(id) => { setFromGarage(id); setErr(''); }} />
 
         <h3 className="h3" style={{ marginTop: 4 }}>{round ? 'الذهاب' : 'موعد الرحلة'}</h3>
         <DateField label="يوم الحركة" value={date} min={todayIso()} onChange={(d) => { setDate(d); if (backDate < d) setBackDate(addDays(d, 1)); setErr(''); }} />
@@ -590,7 +565,7 @@ export function DriverAddTrip() {
         {round ? (
           <>
             <h3 className="h3" style={{ marginTop: 4 }}>الإياب ({to} ← {from})</h3>
-            <GaragePick label={`كراج الانطلاق في ${to}`} city={to} value={toGarage} onChange={(id) => { setToGarage(id); setErr(''); }} />
+            <GarageField label={`كراج الانطلاق في ${to}`} city={to} value={toGarage} onChange={(id) => { setToGarage(id); setErr(''); }} />
             <DateField label="يوم الرجعة" value={backDate} min={date} onChange={(d) => { setBackDate(d); setErr(''); }} />
             <TimeField label="وقت الرجعة" value={backTime} onChange={(t) => { setBackTime(t); setErr(''); }} />
             <div className="card row gap12" style={{ borderStyle: 'dashed' }}>
