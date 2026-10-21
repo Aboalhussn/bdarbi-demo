@@ -279,3 +279,11 @@ export { addHours };
 
 /** The vehicle registered to the demo driver. It is fixed: every new trip uses it. */
 export const DRIVER_VEHICLE = { kind: 'باص' as VehicleKind, model: 'كيا جرانبيرد', seats: 40, plate: 'بغداد 48213 أ', color: 'أبيض', year: '2019' };
+
+/** "19:30" → "7:30 م" (12-hour clock, ص before noon, م after). */
+export function fmt12(hhmm: string) {
+  const [h, m] = hhmm.split(':').map(Number);
+  if (Number.isNaN(h)) return hhmm;
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${String(m).padStart(2, '0')} ${h < 12 ? 'ص' : 'م'}`;
+}

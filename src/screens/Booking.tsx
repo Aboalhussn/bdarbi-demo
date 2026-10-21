@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
-import { COUPONS, garageById, longDate, money, newCode, todayIso, tripById, type Trip } from '../data';
+import { COUPONS, fmt12, garageById, longDate, money, newCode, todayIso, tripById, type Trip } from '../data';
 import { Icon } from '../icons';
 import { ticketPayload, tripOf, useStore, type Booking } from '../store';
-import { QR, Sheet, TabBar, TopBar } from '../ui';
+import { QR, Sheet, TabBar, Time, TopBar } from '../ui';
 import { Avatar } from './Account';
 
 const FAMILY_MAX = 12;
@@ -80,7 +80,7 @@ export function Seats() {
 
   return (
     <div className="screen">
-      <TopBar title="اختار المقعد اللي تريده" sub={<>{trip.company} · {trip.kind} {trip.capacity} مقعد · <span className="num">{trip.time}</span> · {longDate(date)}</>} />
+      <TopBar title="اختار المقعد اللي تريده" sub={<>{trip.company} · {trip.kind} {trip.capacity} مقعد · <span className="num"><Time v={trip.time} /></span> · {longDate(date)}</>} />
       <div className="legend" style={{ padding: '0 20px 10px' }}>
         <span><i style={{ border: '1.5px solid var(--mist)' }} />متوفر</span>
         <span><i style={{ background: 'var(--navy)' }} />اختيارك</span>
@@ -236,14 +236,14 @@ export function Checkout() {
           </div>
           <div className="row gap12">
             <div>
-              <div className="num" style={{ fontWeight: 800, fontSize: 24, color: 'var(--navy)' }}>{trip.time}</div>
+              <div className="num" style={{ fontWeight: 800, fontSize: 24, color: 'var(--navy)' }}><Time v={trip.time} /></div>
               <div className="small muted">{trip.from}</div>
             </div>
             <span className="dash" />
             <span className="tiny muted">{trip.duration}</span>
             <span className="dash" />
             <div style={{ textAlign: 'left' }}>
-              <div className="num" style={{ fontWeight: 800, fontSize: 24, color: 'var(--navy)' }}>{trip.arrive}</div>
+              <div className="num" style={{ fontWeight: 800, fontSize: 24, color: 'var(--navy)' }}><Time v={trip.arrive} /></div>
               <div className="small muted">{trip.to}</div>
             </div>
           </div>
@@ -314,7 +314,7 @@ export function Ticket() {
   const past = b.date < todayIso();
 
   const share = async () => {
-    const text = `تذكرتي ببدربي 🎫\n${trip.from} ← ${trip.to}\n${longDate(b.date)} · ${trip.time}\n${garage.name} · مقاعد ${b.seats.join('، ')}\nرمز الحجز: ${b.code}`;
+    const text = `تذكرتي ببدربي 🎫\n${trip.from} ← ${trip.to}\n${longDate(b.date)} · ${fmt12(trip.time)}\n${garage.name} · مقاعد ${b.seats.join('، ')}\nرمز الحجز: ${b.code}`;
     try {
       if (Capacitor.isNativePlatform()) await Share.share({ title: 'تذكرة بدربي', text, dialogTitle: 'مشاركة التذكرة' });
       else if (navigator.share) await navigator.share({ title: 'تذكرة بدربي', text });
@@ -349,7 +349,7 @@ export function Ticket() {
         </div>
 
         <div className="ticket" style={{ margin: '6px 20px 0' }}>
-          {boarded ? <div style={{ background: 'var(--success-bg)', color: 'var(--success)', padding: '10px 20px', fontWeight: 700 }}>صعدت ✓ <span className="num" style={{ fontWeight: 600 }}>{boarded}</span> — رحلة سعيدة!</div> : null}
+          {boarded ? <div style={{ background: 'var(--success-bg)', color: 'var(--success)', padding: '10px 20px', fontWeight: 700 }}>صعدت ✓ <span className="num" style={{ fontWeight: 600 }}><Time v={boarded} /></span> — رحلة سعيدة!</div> : null}
           {cancelled ? <div style={{ background: 'var(--alert-bg)', color: 'var(--alert)', padding: '10px 20px', fontWeight: 700 }}>هذا الحجز ملغي</div> : null}
           <div style={{ padding: '18px 20px 14px' }}>
             <div className="row" style={{ justifyContent: 'space-between' }}>
@@ -358,14 +358,14 @@ export function Ticket() {
             </div>
             <div className="row gap12" style={{ marginTop: 14 }}>
               <div>
-                <div className="num" style={{ fontWeight: 800, fontSize: 26, color: 'var(--navy)' }}>{trip.time}</div>
+                <div className="num" style={{ fontWeight: 800, fontSize: 26, color: 'var(--navy)' }}><Time v={trip.time} /></div>
                 <div className="small muted">{trip.from} · {garage.name.replace('كراج ', '')}</div>
               </div>
               <span className="dash" />
               <span style={{ color: 'var(--mist)' }}><Icon name="bus" size={20} /></span>
               <span className="dash" />
               <div style={{ textAlign: 'left' }}>
-                <div className="num" style={{ fontWeight: 800, fontSize: 26, color: 'var(--navy)' }}>{trip.arrive}</div>
+                <div className="num" style={{ fontWeight: 800, fontSize: 26, color: 'var(--navy)' }}><Time v={trip.arrive} /></div>
                 <div className="small muted">{trip.to}</div>
               </div>
             </div>
@@ -445,7 +445,7 @@ export function MyTrips() {
                   <span className={`pill ${b.status === 'cancelled' ? 'bad' : boarded ? 'info' : 'ok'}`}>{b.status === 'cancelled' ? 'ملغية' : boarded ? 'صعدت ✓' : 'مؤكدة'}</span>
                 </div>
                 <div className="row gap10 small muted">
-                  <span>{longDate(b.date)}</span>·<span className="num">{t.time}</span>·<span>مقاعد {b.seats.join('، ')}</span>
+                  <span>{longDate(b.date)}</span>·<span className="num"><Time v={t.time} /></span>·<span>مقاعد {b.seats.join('، ')}</span>
                   <span className="grow" />
                   <span className="code" style={{ letterSpacing: 1 }}>{b.code}</span>
                 </div>

@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { DEMO_PASSENGERS, DRIVER_TRIP_ID, TRIPS, todayIso, tripById, type VehicleKind } from './data';
+import { DEMO_PASSENGERS, DRIVER_TRIP_ID, TRIPS, fmt12, todayIso, tripById, type VehicleKind } from './data';
 
 export type Role = 'passenger' | 'driver';
 
@@ -84,7 +84,7 @@ const initial: Persisted = {
   requests: [
     { id: 'r1', name: 'مرتضى سالم', route: 'بغداد ← البصرة', seats: 2, when: 'اليوم', status: 'new' },
     { id: 'r2', name: 'هدى جاسم', route: 'بغداد ← البصرة', seats: 1, when: 'اليوم', status: 'new' },
-    { id: 'r3', name: 'عباس فاضل', route: 'البصرة ← بغداد', seats: 3, when: 'باچر 16:00', status: 'new' },
+    { id: 'r3', name: 'عباس فاضل', route: 'البصرة ← بغداد', seats: 3, when: 'باچر 4:00 م', status: 'new' },
   ],
   points: 320,
   usedCoupons: [],
@@ -240,7 +240,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const date = found?.date ?? parsed!.date;
       if (tripId !== DRIVER_TRIP_ID) {
         const t = tripById(tripId);
-        return { kind: 'other', tripLabel: t ? `${t.from} ← ${t.to} · ${t.time}` : 'رحلة ثانية' };
+        return { kind: 'other', tripLabel: t ? `${t.from} ← ${t.to} · ${fmt12(t.time)}` : 'رحلة ثانية' };
       }
       if (date !== todayIso()) return { kind: 'notToday', date };
       const booking: Booking = found ?? {

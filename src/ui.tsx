@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import QRCode from 'qrcode';
 import { Capacitor } from '@capacitor/core';
 import { Icon } from './icons';
+import { fmt12 } from './data';
 import { useStore } from './store';
 
 export function TopBar({ title, sub, right, onBack }: { title: ReactNode; sub?: ReactNode; right?: ReactNode; onBack?: () => void }) {
@@ -112,5 +113,20 @@ export function Stars({ rate }: { rate: string }) {
       </span>
       <span className="num" style={{ fontSize: 13 }}>{rate}</span>
     </span>
+  );
+}
+
+/**
+ * A time on the 12-hour clock: big digits with a small ص / م on their left, the way it reads in Arabic.
+ * Always used inside a `.num` element, which is laid out left-to-right.
+ */
+export function Time({ v }: { v: string }) {
+  const f = fmt12(v);
+  const i = f.lastIndexOf(' ');
+  return (
+    <>
+      <small style={{ fontSize: '0.55em', fontWeight: 700, marginInlineEnd: 4, fontFamily: 'var(--text)', unicodeBidi: 'isolate', display: 'inline-block' }}>{f.slice(i + 1)}</small>
+      {f.slice(0, i)}
+    </>
   );
 }

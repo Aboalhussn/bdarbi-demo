@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import jsQR from 'jsqr';
-import { CITIES, DRIVER_TRIP_ID, DRIVER_VEHICLE, addHours, garageById, longDate, money, routeInfo, todayIso, tripById } from '../data';
+import { CITIES, DRIVER_TRIP_ID, DRIVER_VEHICLE, addHours, fmt12, garageById, longDate, money, routeInfo, todayIso, tripById } from '../data';
 import { DateField, TimeField, addDays } from '../pickers';
 import { Icon } from '../icons';
 import { useStore, type Booking, type ScanOutcome } from '../store';
-import { Sheet, TabBar, TopBar } from '../ui';
+import { Sheet, TabBar, Time, TopBar } from '../ui';
 import { AboutDemo } from './Booking';
 
 const DRIVER_NAME = 'حسين كاظم';
@@ -39,7 +39,7 @@ export function DriverHome() {
                 <span className="pill warn">قبل الحركة</span>
               </div>
               <div className="row gap10">
-                <span className="num" style={{ fontWeight: 800, fontSize: 26, color: 'var(--navy)' }}>{trip.time}</span>
+                <span className="num" style={{ fontWeight: 800, fontSize: 26, color: 'var(--navy)' }}><Time v={trip.time} /></span>
                 <span className="bold grow">{trip.from} ← {trip.to}</span>
               </div>
               <div className="small muted">{garageById(trip.garageId).name} · {trip.kind} {trip.capacity} مقعد · رصيف <span className="num">{trip.platform}</span></div>
@@ -80,10 +80,10 @@ export function DriverHome() {
           ) : (
             driverTrips.map((t) => (
               <div key={t.id} className="card row gap12">
-                <div className="num" style={{ fontWeight: 800, fontSize: 20, color: 'var(--navy)' }}>{t.time}</div>
+                <div className="num" style={{ fontWeight: 800, fontSize: 20, color: 'var(--navy)' }}><Time v={t.time} /></div>
                 <div className="grow">
                   <div className="bold">{t.from} ← {t.to}</div>
-                  <div className="small muted">{longDate(t.date)} · يوصل <span className="num">{t.arrive ?? ''}</span> · {t.seats} مقعد · <span className="num">{money(t.price)}</span> د.ع</div>
+                  <div className="small muted">{longDate(t.date)} · يوصل {t.arrive ? fmt12(t.arrive) : ''} · {t.seats} مقعد · <span className="num">{money(t.price)}</span> د.ع</div>
                 </div>
                 <span className="pill ok">منشورة</span>
               </div>
@@ -129,7 +129,7 @@ export function DriverTrip() {
 
   return (
     <div className="screen">
-      <TopBar title={`${trip.from} ← ${trip.to}`} sub={<>اليوم · <span className="num">{trip.time}</span> · صعدوا <b className="num">{boarded}/{seats}</b></>} right={<button className="iconbtn" aria-label="مسح تذكرة" onClick={() => go('driverScan')} style={{ background: 'var(--navy)', color: '#fff' }}><Icon name="scan" size={22} /></button>} />
+      <TopBar title={`${trip.from} ← ${trip.to}`} sub={<>اليوم · <span className="num"><Time v={trip.time} /></span> · صعدوا <b className="num">{boarded}/{seats}</b></>} right={<button className="iconbtn" aria-label="مسح تذكرة" onClick={() => go('driverScan')} style={{ background: 'var(--navy)', color: '#fff' }}><Icon name="scan" size={22} /></button>} />
       <div className="legend" style={{ padding: '0 20px 10px' }}>
         <span><i style={{ background: '#E4E2EE' }} />محجوز</span>
         <span><i style={{ background: 'var(--success-bg)', border: '1.5px solid #9BD1B1' }} />صعد</span>
@@ -148,7 +148,7 @@ export function DriverTrip() {
                 <span className="bold" style={{ display: 'block' }}>{b.name}</span>
                 <span className="tiny muted">مقاعد {b.seats.join('، ')} · {b.pay} · <span className="code" style={{ letterSpacing: 1 }}>{b.code}</span></span>
               </span>
-              <span className={`pill ${b.status === 'cancelled' ? 'bad' : at ? 'ok' : 'info'}`}>{b.status === 'cancelled' ? 'ملغي' : at ? `صعد ${at}` : 'ما صعد'}</span>
+              <span className={`pill ${b.status === 'cancelled' ? 'bad' : at ? 'ok' : 'info'}`}>{b.status === 'cancelled' ? 'ملغي' : at ? `صعد ${fmt12(at)}` : 'ما صعد'}</span>
             </button>
           );
         })}
@@ -166,7 +166,7 @@ export function DriverTrip() {
             {sel.status === 'cancelled' ? (
               <div className="pill bad" style={{ height: 40, justifyContent: 'center' }}>الحجز ملغي</div>
             ) : boardedAt(sel) ? (
-              <div className="pill ok" style={{ height: 40, justifyContent: 'center' }}>صعد الساعة <span className="num">&nbsp;{boardedAt(sel)}</span></div>
+              <div className="pill ok" style={{ height: 40, justifyContent: 'center' }}>صعد الساعة&nbsp;<span className="num"><Time v={boardedAt(sel)!} /></span></div>
             ) : (
               <button className="btn green" onClick={() => { board(sel.code); showToast(`${sel.name} صعد ✓`); setSel(null); }}><Icon name="check" size={20} stroke={3} /> صعد (بدون مسح)</button>
             )}
@@ -335,7 +335,7 @@ export function DriverScanResult() {
       case 'ok':
         return { color: 'var(--success)', bg: 'var(--success-bg)', icon: 'check', title: 'التذكرة صحيحة', sub: 'تأكد من الاسم وصعّد المسافر' };
       case 'already':
-        return { color: '#7A5200', bg: '#FDF1D6', icon: 'info', title: 'صاعد من قبل', sub: `هذي التذكرة انمسحت الساعة ${outcome.at}` };
+        return { color: '#7A5200', bg: '#FDF1D6', icon: 'info', title: 'صاعد من قبل', sub: `هذي التذكرة انمسحت الساعة ${fmt12(outcome.at)}` };
       case 'other':
         return { color: 'var(--alert)', bg: 'var(--alert-bg)', icon: 'x', title: 'التذكرة لرحلة ثانية', sub: outcome.tripLabel };
       case 'cancelled':
@@ -459,7 +459,7 @@ export function DriverAddTrip() {
       const e = s + Math.round(t.hours * 60);
       return start < e + 60 && s < end + 60;
     });
-    if (clash) return setErr(`عندك رحلة بنفس الوقت: ${clash.label} · ${longDate(clash.date)} · ${clash.time}`);
+    if (clash) return setErr(`عندك رحلة بنفس الوقت: ${clash.label} · ${longDate(clash.date)} · ${fmt12(clash.time)}`);
     set({ driverTrips: [...driverTrips, { id: 'd' + Date.now(), from: 'بغداد', to, date, time, kind: v.kind, seats: v.seats, price: p, arrive }] });
     showToast('انضافت الرحلة وصارت تطلع للمسافرين');
     back();
@@ -503,7 +503,7 @@ export function DriverAddTrip() {
           <span className="df-ic"><Icon name="pin" size={20} /></span>
           <div className="grow">
             <div className="tiny muted">الوصول المتوقع إلى {to}</div>
-            <div className="bold"><span className="num" style={{ fontSize: 18 }}>{arrive}</span> {nextDay ? '· اليوم الثاني' : ''}</div>
+            <div className="bold"><span className="num" style={{ fontSize: 18 }}><Time v={arrive} /></span> {nextDay ? '· اليوم الثاني' : ''}</div>
           </div>
           <span className="pill info">{info.dur}</span>
         </div>

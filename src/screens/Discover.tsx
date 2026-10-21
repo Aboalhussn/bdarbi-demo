@@ -4,7 +4,7 @@ import { Capacitor } from '@capacitor/core';
 import { CITIES, DESTINATIONS, GARAGES, TRIPS, dayList, departedToday, distanceKm, garageById, longDate, money, todayIso, type Garage, type Trip } from '../data';
 import { Icon } from '../icons';
 import { tripOf, useStore, type Booking } from '../store';
-import { Sheet, Stars, TabBar, TopBar, openExternal } from '../ui';
+import { Sheet, Stars, TabBar, Time, TopBar, openExternal } from '../ui';
 import { DateField, prettyDate } from '../pickers';
 import { Avatar } from './Account';
 
@@ -95,7 +95,7 @@ export function Home() {
             </div>
             <div className="grow">
               <div className="small muted">رحلتك الجاية · {longDate(upcoming.date)}</div>
-              <div className="bold" style={{ fontSize: 16 }}>{tripOf(upcoming).from} ← {tripOf(upcoming).to} · <span className="num">{tripOf(upcoming).time}</span></div>
+              <div className="bold" style={{ fontSize: 16 }}>{tripOf(upcoming).from} ← {tripOf(upcoming).to} · <span className="num"><Time v={tripOf(upcoming).time} /></span></div>
             </div>
             <span className={`pill ${upcoming.boardedAt ? 'info' : 'ok'}`}>{upcoming.boardedAt ? 'صعدت ✓' : 'مؤكدة'}</span>
           </button>
@@ -153,7 +153,7 @@ function TripMini({ trip }: { trip: Trip }) {
         <span className={`pill ${tag.cls}`} style={{ height: 24, fontSize: 11 }}>{tag.text}</span>
       </div>
       <div className="row gap8">
-        <span className="num" style={{ fontWeight: 800, fontSize: 22, color: 'var(--navy)' }}>{trip.time}</span>
+        <span className="num" style={{ fontWeight: 800, fontSize: 22, color: 'var(--navy)' }}><Time v={trip.time} /></span>
         <span className="dash" />
         <span className="tiny muted">{trip.duration}</span>
       </div>
@@ -219,7 +219,7 @@ export function Trips() {
             return (
               <button key={t.id} className="card stack gap8" disabled={gone || full} style={{ textAlign: 'right', opacity: gone || full ? 0.5 : 1 }} onClick={() => go('seats', { tripId: t.id, date: day })}>
                 <div className="row gap10">
-                  <span className="num" style={{ fontWeight: 800, fontSize: 24, color: 'var(--navy)' }}>{t.time}</span>
+                  <span className="num" style={{ fontWeight: 800, fontSize: 24, color: 'var(--navy)' }}><Time v={t.time} /></span>
                   <span className={`pill ${morning ? 'warn' : 'info'}`} style={{ height: 24, fontSize: 11 }}>{h >= 20 ? 'ليلية' : morning ? 'صباحية' : 'مسائية'}</span>
                   <span className="grow" />
                   <div style={{ textAlign: 'left' }}>
@@ -359,14 +359,14 @@ export function Search() {
                     <button key={t.id} className="card stack gap8" style={{ textAlign: 'right' }} onClick={() => go('seats', { tripId: t.id, date, count: passengers, family })}>
                       <div className="row gap12">
                         <div>
-                          <div className="num" style={{ fontWeight: 800, fontSize: 22, color: 'var(--navy)' }}>{t.time}</div>
+                          <div className="num" style={{ fontWeight: 800, fontSize: 22, color: 'var(--navy)' }}><Time v={t.time} /></div>
                           <div className="tiny muted">{t.from}</div>
                         </div>
                         <span className="dash" />
                         <span className="tiny muted center" style={{ lineHeight: 1.3 }}>{t.duration}</span>
                         <span className="dash" />
                         <div style={{ textAlign: 'left' }}>
-                          <div className="num" style={{ fontWeight: 800, fontSize: 22, color: 'var(--navy)' }}>{t.arrive}</div>
+                          <div className="num" style={{ fontWeight: 800, fontSize: 22, color: 'var(--navy)' }}><Time v={t.arrive} /></div>
                           <div className="tiny muted">{t.to}</div>
                         </div>
                       </div>

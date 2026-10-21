@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { isoDate } from './data';
+import { fmt12, isoDate } from './data';
 import { Icon } from './icons';
 import { Sheet } from './ui';
 
@@ -165,42 +165,82 @@ export function RangeField({ start, end, min, onChange }: { start: string; end: 
   );
 }
 
-const HOURS = Array.from({ length: 24 }, (_, i) => i);
-const MINUTES = [0, 15, 30, 45];
-
-/** A tappable field that opens a themed time picker (24h, 15-minute steps). */
+/** A tappable field that opens a themed 12-hour clock: pick the hour, then the minutes, then ص / م. */
 export function TimeField({ label, value, onChange }: { label: string; value: string; onChange: (hhmm: string) => void }) {
   const [open, setOpen] = useState(false);
-  const [h, setH] = useState(Number(value.split(':')[0]));
-  const [m, setM] = useState(Number(value.split(':')[1]));
-  const fmt = (hh: number, mm: number) => `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
-  const period = (hh: number) => (hh < 5 ? 'فجراً' : hh < 12 ? 'صباحاً' : hh < 17 ? 'ظهراً' : hh < 20 ? 'مساءً' : 'ليلاً');
+  const [h12, setH12] = useState(12);
+  const [m, setM] = useState(0);
+  const [pm, setPm] = useState(false);
+  const [mode, setMode] = useState<'hour' | 'minute'>('hour');
+
+  const show = () => {
+    const [h, mm] = value.split(':').map(Number);
+    setH12(h % 12 === 0 ? 12 : h % 12);
+    setM(mm - (mm % 5));
+    setPm(h >= 12);
+    setMode('hour');
+    setOpen(true);
+  };
+  const to24 = () => {
+    const h = (h12 % 12) + (pm ? 12 : 0);
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  };
+
+  const R = 104; // dial radius for the numbers
+  const items = mode === 'hour' ? Array.from({ length: 12 }, (_, i) => i + 1) : Array.from({ length: 12 }, (_, i) => i * 5);
+  const selected = mode === 'hour' ? h12 : m;
+  const angleOf = (n: number) => ((mode === 'hour' ? (n % 12) / 12 : n / 60) * 360 - 90) * (Math.PI / 180);
+  const a = angleOf(selected);
+
   return (
     <>
-      <button className="datefield" onClick={() => { setH(Number(value.split(':')[0])); setM(Number(value.split(':')[1])); setOpen(true); }}>
+      <button className="datefield" onClick={show}>
         <span className="df-ic"><Icon name="clock" size={20} /></span>
         <span className="grow">
           <span className="df-label">{label}</span>
-          <span className="df-value"><span className="num">{value}</span> {period(Number(value.split(':')[0]))}</span>
+          <span className="df-value num" style={{ textAlign: 'right' }}>{fmt12(value)}</span>
         </span>
         <Icon name="forward" size={16} />
       </button>
       <Sheet open={open} onClose={() => setOpen(false)} label={label}>
-        <div className="time-big num">{fmt(h, m)}</div>
-        <div className="center small muted" style={{ marginTop: -4 }}>{period(h)}</div>
-        <div className="label" style={{ margin: '12px 0 8px' }}>الساعة</div>
-        <div className="time-grid">
-          {HOURS.map((x) => (
-            <button key={x} className={x === h ? 'on' : ''} onClick={() => setH(x)}><span className="num">{String(x).padStart(2, '0')}</span></button>
-          ))}
+        <h2 className="h3">{label}</h2>
+        <div className="clock-top">
+          <div className="clock-read num">
+            <button className={mode === 'hour' ? 'on' : ''} onClick={() => setMode('hour')}>{h12}</button>
+            <span>:</span>
+            <button className={mode === 'minute' ? 'on' : ''} onClick={() => setMode('minute')}>{String(m).padStart(2, '0')}</button>
+          </div>
+          <div className="ampm">
+            <button className={!pm ? 'on' : ''} onClick={() => setPm(false)}>ص</button>
+            <button className={pm ? 'on' : ''} onClick={() => setPm(true)}>م</button>
+          </div>
         </div>
-        <div className="label" style={{ margin: '14px 0 8px' }}>الدقيقة</div>
-        <div className="time-grid four">
-          {MINUTES.map((x) => (
-            <button key={x} className={x === m ? 'on' : ''} onClick={() => setM(x)}><span className="num">{String(x).padStart(2, '0')}</span></button>
-          ))}
+        <div className="small muted center" style={{ marginTop: 2 }}>{mode === 'hour' ? 'اختار الساعة' : 'اختار الدقائق'}</div>
+        <div className="dial">
+          <div className="dial-hand" style={{ width: R, transform: `rotate(${(a * 180) / Math.PI}deg)` }} />
+          <div className="dial-center" />
+          {items.map((n) => {
+            const an = angleOf(n);
+            const x = Math.cos(an) * R;
+            const y = Math.sin(an) * R;
+            return (
+              <button
+                key={n}
+                className={`dial-num num ${n === selected ? 'on' : ''}`}
+                style={{ transform: `translate(${x}px, ${y}px)` }}
+                onClick={() => {
+                  if (mode === 'hour') {
+                    setH12(n);
+                    setMode('minute');
+                  } else setM(n);
+                }}
+              >
+                {mode === 'hour' ? n : String(n).padStart(2, '0')}
+              </button>
+            );
+          })}
         </div>
-        <button className="btn" style={{ marginTop: 16 }} onClick={() => { onChange(fmt(h, m)); setOpen(false); }}>تم</button>
+        <button className="btn" onClick={() => { onChange(to24()); setOpen(false); }}>تم · {fmt12(to24())}</button>
       </Sheet>
     </>
   );
