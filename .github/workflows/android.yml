@@ -1,0 +1,71 @@
+# Builds the Android APK on every push to main and publishes it as the newest GitHub Release.
+# Direct download link for the latest build (send this to anyone):
+#   https://github.com/Aboalhussn/bdarbi-demo/releases/latest/download/bdarbi-demo.apk
+name: Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-apk
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install
+        run: npm ci
+
+      - name: Type-check and build the app
+        run: npm run build
+
+      - name: Copy the app into the Android project
+        run: npx cap sync android
+
+      - name: Number this build so phones install it as an update
+        run: |
+          sed -i -E "s/versionCode [0-9]+/versionCode ${{ github.run_number }}/; s/versionName \"[^\"]*\"/versionName \"1.0.${{ github.run_number }}\"/" android/app/build.gradle
+
+      - name: Build APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - run: cp android/app/build/outputs/apk/debug/app-debug.apk bdarbi-demo.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bdarbi-demo-apk
+          path: bdarbi-demo.apk
+
+      - name: Publish as the latest release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: بدربي Demo 1.0.${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          make_latest: true
+          body: |
+            نسخة تجريبية من تطبيق بدربي (Demo).
+            - نزّل `bdarbi-demo.apk` وافتحه بالتلفون (اسمح بالتثبيت من هذا المصدر).
+            - كل نسخة جديدة تنزل فوق القديمة كتحديث.
+          files: bdarbi-demo.apk

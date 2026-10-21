@@ -1,0 +1,78 @@
+import { useEffect, type ComponentType } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { App as CapApp } from '@capacitor/app';
+import { StatusBar, Style } from '@capacitor/status-bar';
+import { useStore } from './store';
+import { Login, OnboardLocation, OnboardNotify, Otp, Register, Splash } from './screens/Welcome';
+import { Garages, Home, Rewards, Search, Trips } from './screens/Discover';
+import { Checkout, MyTrips, Profile, Seats, Ticket } from './screens/Booking';
+import { Coaster, HotelDetails, Hotels } from './screens/Hotels';
+import { DriverAddTrip, DriverHome, DriverProfile, DriverRequests, DriverScan, DriverScanResult, DriverTrip } from './screens/Driver';
+
+const SCREENS: Record<string, ComponentType> = {
+  splash: Splash,
+  onboardLocation: OnboardLocation,
+  onboardNotify: OnboardNotify,
+  login: Login,
+  register: Register,
+  otp: Otp,
+  home: Home,
+  trips: Trips,
+  search: Search,
+  garages: Garages,
+  rewards: Rewards,
+  seats: Seats,
+  checkout: Checkout,
+  ticket: Ticket,
+  myTrips: MyTrips,
+  profile: Profile,
+  hotels: Hotels,
+  hotel: HotelDetails,
+  coaster: Coaster,
+  driverHome: DriverHome,
+  driverTrip: DriverTrip,
+  driverScan: DriverScan,
+  driverScanResult: DriverScanResult,
+  driverRequests: DriverRequests,
+  driverAddTrip: DriverAddTrip,
+  driverProfile: DriverProfile,
+};
+
+// Screens whose top edge is navy get a navy status bar; the rest get white.
+const NAVY_TOP = new Set(['splash', 'login', 'trips', 'ticket', 'profile', 'driverHome', 'driverProfile', 'driverScan']);
+
+export default function App() {
+  const { route, stackDepth, back, toast } = useStore();
+  const Screen = SCREENS[route.name] ?? Home;
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const sub = CapApp.addListener('backButton', () => {
+      // Close an open bottom sheet first, then go back a screen, then leave the app.
+      const sheet = document.querySelector('.sheet-back') as HTMLElement | null;
+      if (sheet) {
+        sheet.click();
+        return;
+      }
+      if (!back()) void CapApp.exitApp();
+    });
+    return () => {
+      void sub.then((s) => s.remove());
+    };
+  }, [back]);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const navy = NAVY_TOP.has(route.name);
+    const color = route.name === 'driverScan' ? '#000000' : navy ? '#0B0558' : route.name === 'hotel' ? '#DCD8EE' : '#FFFFFF';
+    void StatusBar.setBackgroundColor({ color }).catch(() => undefined);
+    void StatusBar.setStyle({ style: navy ? Style.Dark : Style.Light }).catch(() => undefined);
+  }, [route.name]);
+
+  return (
+    <div className="app">
+      <Screen key={`${stackDepth}-${route.name}`} />
+      {toast ? <div className="toast" role="status">{toast}</div> : null}
+    </div>
+  );
+}
