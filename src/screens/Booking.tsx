@@ -1,11 +1,10 @@
 import { useMemo, useState } from 'react';
-import { Capacitor } from '@capacitor/core';
-import { Share } from '@capacitor/share';
-import { COUPONS, fmt12, garageById, longDate, money, newCode, todayIso, tripById, type Trip } from '../data';
+import { COUPONS, garageById, longDate, money, newCode, todayIso, tripById, type Trip } from '../data';
 import { Icon } from '../icons';
 import { ticketPayload, tripOf, useStore, type Booking } from '../store';
 import { QR, Sheet, TabBar, Time, TopBar } from '../ui';
 import { Avatar } from './Account';
+import { renderTicket, saveTicketImage } from '../ticketImage';
 
 const FAMILY_MAX = 12;
 
@@ -306,6 +305,7 @@ export function Ticket() {
   const fresh = route.params?.fresh === true;
   const b = bookings.find((x) => x.code === code);
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [saving, setSaving] = useState(false);
   if (!b) return <Missing />;
   const trip = tripOf(b);
   const garage = garageById(trip.garageId);
@@ -313,17 +313,18 @@ export function Ticket() {
   const cancelled = b.status === 'cancelled';
   const past = b.date < todayIso();
 
-  const share = async () => {
-    const text = `تذكرتي ببدربي 🎫\n${trip.from} ← ${trip.to}\n${longDate(b.date)} · ${fmt12(trip.time)}\n${garage.name} · مقاعد ${b.seats.join('، ')}\nرمز الحجز: ${b.code}`;
+  const download = async () => {
+    if (saving) return;
+    setSaving(true);
     try {
-      if (Capacitor.isNativePlatform()) await Share.share({ title: 'تذكرة بدربي', text, dialogTitle: 'مشاركة التذكرة' });
-      else if (navigator.share) await navigator.share({ title: 'تذكرة بدربي', text });
-      else {
-        await navigator.clipboard.writeText(text);
-        showToast('انسخت تفاصيل التذكرة');
-      }
+      const img = await renderTicket(b, trip, boarded);
+      const how = await saveTicketImage(img, b.code);
+      if (how === 'saved') showToast('انحفظت صورة التذكرة بالمعرض (Pictures/Bdarbi) ✓');
+      else if (how === 'downloaded') showToast('نزلت صورة التذكرة ✓');
     } catch {
-      /* closed */
+      showToast('ما گدرنا نحفظ الصورة، جرّب مرة ثانية');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -331,7 +332,7 @@ export function Ticket() {
     <div className="screen navy hero" style={{ borderRadius: 0 }}>
       <div className="scroll" style={{ paddingTop: 'var(--safe-top)', paddingBottom: 'calc(24px + var(--safe-bottom))' }}>
         <div className="row gap14" style={{ padding: '14px 20px 0', alignItems: 'center' }}>
-          <img src="./img/mascot.png" alt="" style={{ height: 180, width: 'auto', flexShrink: 0 }} />
+          <img src="./img/mascot.png" alt="" style={{ height: 250, width: 'auto', flexShrink: 0, marginBottom: -16 }} />
           <div className="grow">
             {fresh ? (
               <>
@@ -391,7 +392,7 @@ export function Ticket() {
         </div>
 
         <div className="row gap10" style={{ margin: '16px 20px 0' }}>
-          <button className="btn sm" style={{ background: 'rgba(255,255,255,.12)' }} onClick={() => void share()}><Icon name="share" size={18} /> مشاركة</button>
+          <button className="btn sm" style={{ background: 'rgba(255,255,255,.12)' }} disabled={saving} onClick={() => void download()}><Icon name="download" size={18} /> {saving ? 'جاري الحفظ…' : 'تنزيل صورة التكت'}</button>
           {!cancelled && !boarded && !past ? (
             <button className="btn sm" style={{ background: 'rgba(255,255,255,.12)' }} onClick={() => setConfirmCancel(true)}><Icon name="x" size={18} /> إلغاء الحجز</button>
           ) : null}

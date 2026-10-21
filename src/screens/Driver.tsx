@@ -454,6 +454,7 @@ export function DriverAddTrip() {
   const [backTime, setBackTime] = useState('16:00');
   const [price, setPrice] = useState('25000');
   const [err, setErr] = useState('');
+  const [step, setStep] = useState(1);
   const v = DRIVER_VEHICLE;
   const hours = hoursBetween(from, to);
   const mins = Math.round(hours * 60);
@@ -484,11 +485,20 @@ export function DriverAddTrip() {
     ...driverTrips.map((t) => ({ label: `${t.from} ← ${t.to}`, date: t.date, time: t.time, mins: Math.round(hoursBetween(t.from, t.to) * 60) })),
   ];
 
+  const next = () => {
+    if (step === 1 && !fromGarage) return setErr(`اختار كراج الانطلاق في ${from}`);
+    if (step === 2) {
+      const p = Number(price.replace(/[^0-9]/g, ''));
+      if (!p || p < 1000) return setErr('اكتب سعر المقعد');
+      if (round && !toGarage) return setErr(`اختار كراج الرجعة في ${to}`);
+    }
+    setErr('');
+    if (step < 3) setStep(step + 1);
+    else save();
+  };
+
   const save = () => {
     const p = Number(price.replace(/[^0-9]/g, ''));
-    if (!p || p < 1000) return setErr('اكتب سعر المقعد');
-    if (!fromGarage) return setErr(`اختار كراج الانطلاق في ${from}`);
-    if (round && !toGarage) return setErr(`اختار كراج الانطلاق للإياب في ${to}`);
     const now = new Date();
     const nowAbs = toAbs(todayIso(), `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
     const legs = [{ label: `${from} ← ${to}`, date, time, start: toAbs(date, time) }];
@@ -513,80 +523,121 @@ export function DriverAddTrip() {
     back();
   };
 
+  const STEPS = ['الطريق والكراج', 'نوع الرحلة والسعر', 'الموعد'];
+  const arriveCard = (city: string, at: string, d: string, t: string) => (
+    <div className="card row gap12" style={{ borderStyle: 'dashed' }}>
+      <span className="df-ic"><Icon name="pin" size={20} /></span>
+      <div className="grow">
+        <div className="tiny muted">الوصول المتوقع إلى {city}</div>
+        <div className="bold"><span className="num" style={{ fontSize: 18 }}><Time v={at} /></span> {crosses(d, t) ? '· اليوم الثاني' : ''}</div>
+      </div>
+      <span className="pill info">{durLabel(hours)}</span>
+    </div>
+  );
+
   return (
     <div className="screen">
-      <TopBar title="رحلة جديدة" />
-      <div className="scroll pad stack gap12" style={{ paddingBottom: 20 }}>
-        <div className="card row gap12" style={{ background: '#EEEDF8', border: 0 }}>
-          <span className="df-ic" style={{ background: '#fff' }}><Icon name="bus" size={22} /></span>
-          <div className="grow">
-            <div className="tiny muted">مركبتك المسجّلة</div>
-            <div className="bold">{v.kind} {v.model} · {v.seats} مقعد</div>
-            <div className="tiny muted">{v.plate} · {v.color}</div>
+      <TopBar title="رحلة جديدة" sub={`الخطوة ${step} من 3 · ${STEPS[step - 1]}`} onBack={() => { setErr(''); if (step > 1) setStep(step - 1); else back(); }} />
+      <div className="steps pad" aria-label={`الخطوة ${step} من 3`}>
+        {STEPS.map((label, i) => (
+          <div key={label} className={`step ${i + 1 < step ? 'done' : i + 1 === step ? 'cur' : ''}`}>
+            <span className="step-dot num">{i + 1 < step ? <Icon name="check" size={14} stroke={3} /> : i + 1}</span>
+            <span className="step-label">{label}</span>
           </div>
-          <span className="pill ok">ثابتة</span>
-        </div>
-
-        <div className="seg">
-          <button className={!round ? 'on' : ''} onClick={() => { setRound(false); setErr(''); }}>ذهاب بس</button>
-          <button className={round ? 'on' : ''} onClick={() => { setRound(true); setErr(''); }}>ذهاب وإياب</button>
-        </div>
-
-        <div className="route-box">
-          <div className="route-row">
-            <span className="route-dot" />
-            <div className="grow">
-              <CityPicker id="dfrom" label="من" value={from} onChange={changeFrom} />
-            </div>
-          </div>
-          <div className="route-line" />
-          <div className="route-row">
-            <span className="route-dot gold" />
-            <div className="grow">
-              <CityPicker id="dto" label="إلى" value={to} exclude={from} onChange={changeTo} />
-            </div>
-          </div>
-        </div>
-
-        <GarageField label={`كراج الانطلاق في ${from}`} city={from} value={fromGarage} onChange={(id) => { setFromGarage(id); setErr(''); }} />
-
-        <h3 className="h3" style={{ marginTop: 4 }}>{round ? 'الذهاب' : 'موعد الرحلة'}</h3>
-        <DateField label="يوم الحركة" value={date} min={todayIso()} onChange={(d) => { setDate(d); if (backDate < d) setBackDate(addDays(d, 1)); setErr(''); }} />
-        <TimeField label="وقت الحركة" value={time} onChange={(t) => { setTime(t); setErr(''); }} />
-        <div className="card row gap12" style={{ borderStyle: 'dashed' }}>
-          <span className="df-ic"><Icon name="pin" size={20} /></span>
-          <div className="grow">
-            <div className="tiny muted">الوصول المتوقع إلى {to}</div>
-            <div className="bold"><span className="num" style={{ fontSize: 18 }}><Time v={arrive} /></span> {crosses(date, time) ? '· اليوم الثاني' : ''}</div>
-          </div>
-          <span className="pill info">{durLabel(hours)}</span>
-        </div>
-
-        {round ? (
+        ))}
+      </div>
+      <div className="scroll pad stack gap12" style={{ paddingTop: 14, paddingBottom: 20 }}>
+        {step === 1 ? (
           <>
-            <h3 className="h3" style={{ marginTop: 4 }}>الإياب ({to} ← {from})</h3>
-            <GarageField label={`كراج الانطلاق في ${to}`} city={to} value={toGarage} onChange={(id) => { setToGarage(id); setErr(''); }} />
-            <DateField label="يوم الرجعة" value={backDate} min={date} onChange={(d) => { setBackDate(d); setErr(''); }} />
-            <TimeField label="وقت الرجعة" value={backTime} onChange={(t) => { setBackTime(t); setErr(''); }} />
-            <div className="card row gap12" style={{ borderStyle: 'dashed' }}>
-              <span className="df-ic"><Icon name="pin" size={20} /></span>
+            <div className="card row gap12" style={{ background: '#EEEDF8', border: 0 }}>
+              <span className="df-ic" style={{ background: '#fff' }}><Icon name="bus" size={22} /></span>
               <div className="grow">
-                <div className="tiny muted">الوصول المتوقع إلى {from}</div>
-                <div className="bold"><span className="num" style={{ fontSize: 18 }}><Time v={backArrive} /></span> {crosses(backDate, backTime) ? '· اليوم الثاني' : ''}</div>
+                <div className="tiny muted">مركبتك المسجّلة</div>
+                <div className="bold">{v.kind} {v.model} · {v.seats} مقعد</div>
+                <div className="tiny muted">{v.plate} · {v.color}</div>
               </div>
-              <span className="pill info">{durLabel(hours)}</span>
+              <span className="pill ok">ثابتة</span>
             </div>
+            <h3 className="h3">منين وين؟</h3>
+            <div className="route-box">
+              <div className="route-row">
+                <span className="route-dot" />
+                <div className="grow">
+                  <CityPicker id="dfrom" label="الانطلاق من" value={from} onChange={changeFrom} />
+                </div>
+              </div>
+              <div className="route-line" />
+              <div className="route-row">
+                <span className="route-dot gold" />
+                <div className="grow">
+                  <CityPicker id="dto" label="الوصول إلى" value={to} exclude={from} onChange={changeTo} />
+                </div>
+              </div>
+            </div>
+            <GarageField label={`كراج الانطلاق في ${from}`} city={from} value={fromGarage} onChange={(id) => { setFromGarage(id); setErr(''); }} />
           </>
         ) : null}
 
-        <div className="field">
-          <label htmlFor="dprice">سعر المقعد (د.ع)</label>
-          <input id="dprice" className="input num" inputMode="numeric" dir="ltr" style={{ textAlign: 'right' }} value={price} onChange={(e) => { setPrice(e.target.value.replace(/[^0-9]/g, '')); setErr(''); }} />
-        </div>
+        {step === 2 ? (
+          <>
+            <h3 className="h3">نوع الرحلة</h3>
+            <div className="stack gap8">
+              {[
+                [false, 'روحة بس', `${from} ← ${to}`],
+                [true, 'روحة ورجعة', `${from} ← ${to} ← ${from}`],
+              ].map(([val, title, sub]) => (
+                <button key={String(val)} role="radio" aria-checked={round === val} className={`radio ${round === val ? 'on' : ''}`} onClick={() => { setRound(val as boolean); setErr(''); }}>
+                  <span className="dot" />
+                  <span className="grow">
+                    <span className="bold" style={{ display: 'block' }}>{title as string}</span>
+                    <span className="tiny muted">{sub as string}</span>
+                  </span>
+                  <Icon name={val ? 'swap' : 'forward'} size={20} />
+                </button>
+              ))}
+            </div>
+            {round ? <GarageField label={`كراج الرجعة في ${to}`} city={to} value={toGarage} onChange={(id) => { setToGarage(id); setErr(''); }} /> : null}
+            <h3 className="h3" style={{ marginTop: 6 }}>السعر</h3>
+            <div className="price-box">
+              <input id="dprice" className="num" inputMode="numeric" dir="ltr" value={price} onChange={(e) => { setPrice(e.target.value.replace(/[^0-9]/g, '')); setErr(''); }} aria-label="سعر المقعد" />
+              <span>د.ع للمقعد{round ? ' · لكل طريق' : ''}</span>
+            </div>
+            <div className="row gap8" style={{ flexWrap: 'wrap' }}>
+              {[15000, 20000, 25000, 30000, 40000].map((p) => (
+                <button key={p} className={`chip ${Number(price) === p ? 'on' : ''}`} style={{ height: 36, fontSize: 13 }} onClick={() => { setPrice(String(p)); setErr(''); }}><span className="num">{money(p)}</span></button>
+              ))}
+            </div>
+            <div className="tiny muted">بالكامل: <b className="num">{money(Number(price || 0) * v.seats)}</b> د.ع إذا امتلت {v.seats} مقعد</div>
+          </>
+        ) : null}
+
+        {step === 3 ? (
+          <>
+            <div className="card flat row gap10">
+              <Icon name="bus" size={20} />
+              <span className="grow small"><b>{from} ← {to}</b> · {garageById(fromGarage).name} · <span className="num">{money(Number(price))}</span> د.ع{round ? ' · روحة ورجعة' : ''}</span>
+            </div>
+            <h3 className="h3">{round ? 'موعد الروحة' : 'موعد الانطلاق'}</h3>
+            <DateField label="يوم الحركة" value={date} min={todayIso()} onChange={(d) => { setDate(d); if (backDate < d) setBackDate(addDays(d, 1)); setErr(''); }} />
+            <TimeField label="وقت الحركة" value={time} onChange={(t) => { setTime(t); setErr(''); }} />
+            {arriveCard(to, arrive, date, time)}
+            {round ? (
+              <>
+                <h3 className="h3" style={{ marginTop: 6 }}>موعد الرجعة ({to} ← {from})</h3>
+                <DateField label="يوم الرجعة" value={backDate} min={date} onChange={(d) => { setBackDate(d); setErr(''); }} />
+                <TimeField label="وقت الرجعة" value={backTime} onChange={(t) => { setBackTime(t); setErr(''); }} />
+                {arriveCard(from, backArrive, backDate, backTime)}
+              </>
+            ) : null}
+          </>
+        ) : null}
+
         {err ? <div className="card" style={{ background: 'var(--alert-bg)', border: 0, color: 'var(--alert)', fontWeight: 600, fontSize: 14 }}>{err}</div> : null}
       </div>
       <div className="bottombar">
-        <button className="btn" onClick={save}>{round ? 'انشر الذهاب والإياب' : 'انشر الرحلة'}</button>
+        <button className="btn" onClick={next}>
+          {step < 3 ? <>التالي <Icon name="forward" size={18} /></> : round ? 'انشر الروحة والرجعة' : 'انشر الرحلة'}
+        </button>
       </div>
     </div>
   );

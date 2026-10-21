@@ -324,3 +324,17 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .on .city-ic { background: var(--navy); color: #fff; }
 .pick-check { width: 26px; height: 26px; border-radius: 50%; background: var(--navy); color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .datefield.is-empty .df-value { color: var(--slate); font-weight: 600; }
+
+/* ---------- step wizard ---------- */
+.steps { display: flex; gap: 6px; padding-bottom: 4px; }
+.step { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.step::before { content: ''; height: 5px; border-radius: 999px; background: var(--surface); }
+.step.done::before, .step.cur::before { background: var(--navy); }
+.step-dot { display: none; }
+.step-label { font-size: 11px; font-weight: 700; color: var(--slate); text-align: center; }
+.step.cur .step-label { color: var(--navy); }
+.step.done .step-label { color: var(--navy); opacity: .7; }
+.price-box { display: flex; align-items: baseline; gap: 10px; border-radius: 18px; border: 1.5px solid #E4E2EE; background: #F7F6FA; padding: 12px 16px; }
+.price-box:focus-within { border-color: var(--navy); background: #fff; }
+.price-box input { width: 0; flex: 1; border: 0; outline: 0; background: transparent; font-size: 34px; font-weight: 800; color: var(--navy); text-align: left; }
+.price-box span { font-size: 13px; color: var(--slate); font-weight: 600; white-space: nowrap; }
