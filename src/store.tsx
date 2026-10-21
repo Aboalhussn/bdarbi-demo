@@ -27,6 +27,7 @@ export interface DriverTripDraft {
   kind: VehicleKind;
   seats: number;
   price: number;
+  arrive: string;
 }
 
 export interface SeatRequest {
@@ -50,6 +51,18 @@ interface Persisted {
   requests: SeatRequest[];
   points: number;
   usedCoupons: string[];
+  avatar: string; // small JPEG data URL, '' when none
+  password: string;
+  card: SavedCard | null;
+}
+
+/** Only the first four digits are kept — the rest of the number and the CVV are never stored. */
+export interface SavedCard {
+  first4: string;
+  holder: string;
+  expiry: string; // MM/YY
+  brand: string;
+  addedAt: number;
 }
 
 export interface Route {
@@ -75,6 +88,9 @@ const initial: Persisted = {
   ],
   points: 320,
   usedCoupons: [],
+  avatar: '',
+  password: '',
+  card: null,
 };
 
 function load(): Persisted {

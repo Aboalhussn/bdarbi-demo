@@ -42,7 +42,7 @@ export interface Hotel {
   amenities: string[];
 }
 
-export const CITIES = ['بغداد', 'البصرة', 'أربيل', 'كربلاء المقدسة', 'النجف الأشرف', 'السليمانية', 'الموصل', 'الناصرية'];
+export const CITIES = ['بغداد', 'البصرة', 'أربيل', 'كربلاء المقدسة', 'النجف الأشرف', 'السليمانية'];
 
 export const GARAGES: Garage[] = [
   { id: 'nahda', name: 'كراج النهضة', city: 'بغداد', address: 'ساحة النهضة، الرصافة', lat: 33.3412, lng: 44.4199, hours: '24 ساعة' },
@@ -51,6 +51,8 @@ export const GARAGES: Garage[] = [
   { id: 'najaf', name: 'كراج النجف الموحد', city: 'النجف الأشرف', address: 'طريق كربلاء - النجف', lat: 32.0207, lng: 44.3412, hours: '24 ساعة' },
   { id: 'karbala', name: 'كراج كربلاء الموحد', city: 'كربلاء المقدسة', address: 'حي الحسين، مدخل المدينة', lat: 32.6026, lng: 44.0371, hours: '24 ساعة' },
   { id: 'basra', name: 'كراج البصرة الموحد', city: 'البصرة', address: 'طريق سفوان، الزبير', lat: 30.4853, lng: 47.7609, hours: '5 ص - 11 م' },
+  { id: 'erbil', name: 'كراج أربيل', city: 'أربيل', address: 'شارع 100، قرب دوار عنكاوة', lat: 36.2081, lng: 44.0089, hours: '5 ص - 11 م' },
+  { id: 'suli', name: 'كراج السليمانية', city: 'السليمانية', address: 'طريق كركوك، مدخل المدينة', lat: 35.5435, lng: 45.4021, hours: '5 ص - 10 م' },
 ];
 
 const base: Record<string, { dur: string; hours: number; price: number }> = {
@@ -121,6 +123,34 @@ export const TRIPS: Trip[] = DESTINATIONS.flatMap((to, di) =>
     };
   }),
 );
+
+// Trips back to Baghdad from each city (used by search).
+const RETURN_GARAGE: Record<string, string> = { 'البصرة': 'basra', 'أربيل': 'erbil', 'كربلاء المقدسة': 'karbala', 'النجف الأشرف': 'najaf', 'السليمانية': 'suli' };
+const RETURN_TIMES = ['06:00', '10:00', '15:30', '21:00'];
+DESTINATIONS.forEach((from, di) => {
+  rows[from].forEach(([, company, rating, kind, taken], i) => {
+    const capacity = capacityOf(kind);
+    const ladies = kind === 'سيارة' ? [] : [3, 4];
+    const time = RETURN_TIMES[i];
+    TRIPS.push({
+      id: `r${di}${i}`,
+      from,
+      to: 'بغداد',
+      garageId: RETURN_GARAGE[from],
+      time,
+      arrive: addHours(time, base[from].hours),
+      duration: base[from].dur,
+      company,
+      rating,
+      kind,
+      price: priceOf(kind, base[from].price),
+      capacity,
+      booked: seeded(di * 53 + i * 29 + 3, Math.min(Math.max(taken - 3, 0), capacity - 1), capacity, ladies),
+      ladies,
+      platform: `${'ABCD'[i]} · ${i + 1}`,
+    });
+  });
+});
 
 // The driver signed in to the demo drives this trip (Baghdad → Basra). Its departure is
 // always set a little ahead of "now" so a passenger can still book it and the driver can scan it.
@@ -239,3 +269,13 @@ export function departedToday(t: Trip) {
   const now = new Date();
   return h * 60 + m < now.getHours() * 60 + now.getMinutes() - 10;
 }
+
+/** Travel time between Baghdad and a city (either direction). */
+export function routeInfo(city: string) {
+  return base[city] ?? { dur: '—', hours: 4, price: 20000 };
+}
+
+export { addHours };
+
+/** The vehicle registered to the demo driver. It is fixed: every new trip uses it. */
+export const DRIVER_VEHICLE = { kind: 'باص' as VehicleKind, model: 'كيا جرانبيرد', seats: 40, plate: 'بغداد 48213 أ', color: 'أبيض', year: '2019' };

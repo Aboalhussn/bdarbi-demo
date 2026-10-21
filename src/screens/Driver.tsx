@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import jsQR from 'jsqr';
-import { CITIES, DRIVER_TRIP_ID, dayList, garageById, longDate, money, tripById, type VehicleKind } from '../data';
+import { CITIES, DRIVER_TRIP_ID, DRIVER_VEHICLE, addHours, garageById, longDate, money, routeInfo, todayIso, tripById } from '../data';
+import { DateField, TimeField, addDays } from '../pickers';
 import { Icon } from '../icons';
 import { useStore, type Booking, type ScanOutcome } from '../store';
 import { Sheet, TabBar, TopBar } from '../ui';
@@ -82,7 +83,7 @@ export function DriverHome() {
                 <div className="num" style={{ fontWeight: 800, fontSize: 20, color: 'var(--navy)' }}>{t.time}</div>
                 <div className="grow">
                   <div className="bold">{t.from} ← {t.to}</div>
-                  <div className="small muted">{longDate(t.date)} · {t.kind} · {t.seats} مقاعد · <span className="num">{money(t.price)}</span> د.ع</div>
+                  <div className="small muted">{longDate(t.date)} · يوصل <span className="num">{t.arrive ?? ''}</span> · {t.seats} مقعد · <span className="num">{money(t.price)}</span> د.ع</div>
                 </div>
                 <span className="pill ok">منشورة</span>
               </div>
@@ -418,24 +419,48 @@ export function DriverRequests() {
   );
 }
 
+function toAbs(date: string, time: string) {
+  const [y, mo, d] = date.split('-').map(Number);
+  const [h, m] = time.split(':').map(Number);
+  return Date.UTC(y, mo - 1, d) / 60000 + h * 60 + m;
+}
+
 export function DriverAddTrip() {
   const { driverTrips, set, back, showToast } = useStore();
-  const days = dayList(7);
   const [to, setTo] = useState('البصرة');
-  const [date, setDate] = useState(days[1].iso);
+  const [date, setDate] = useState(addDays(todayIso(), 1));
   const [time, setTime] = useState('08:00');
-  const [kind, setKind] = useState<VehicleKind>('سيارة');
-  const [seats, setSeats] = useState(4);
-  const [price, setPrice] = useState('40000');
+  const [price, setPrice] = useState('25000');
   const [err, setErr] = useState('');
-  const kinds: VehicleKind[] = ['سيارة', 'كوستر', 'باص', 'VIP'];
-  const maxSeats = kind === 'سيارة' ? 4 : kind === 'كوستر' ? 24 : kind === 'VIP' ? 32 : 40;
+  const v = DRIVER_VEHICLE;
+  const info = routeInfo(to);
+  const arrive = addHours(time, info.hours);
+  const nextDay = toAbs(date, time) + Math.round(info.hours * 60) >= toAbs(addDays(date, 1), '00:00');
+
+  // Everything this driver already drives: today's trip plus trips he added.
+  const current = tripById(DRIVER_TRIP_ID)!;
+  const mine = [
+    { label: `${current.from} ← ${current.to}`, date: todayIso(), time: current.time, hours: routeInfo(current.to).hours },
+    ...driverTrips.map((t) => ({ label: `${t.from} ← ${t.to}`, date: t.date, time: t.time, hours: routeInfo(t.to).hours })),
+  ];
 
   const save = () => {
     const p = Number(price.replace(/[^0-9]/g, ''));
-    if (!/^\d{2}:\d{2}$/.test(time)) return setErr('اختار وقت الحركة');
     if (!p || p < 1000) return setErr('اكتب سعر المقعد');
-    set({ driverTrips: [...driverTrips, { id: 'd' + Date.now(), from: 'بغداد', to, date, time, kind, seats: Math.min(seats, maxSeats), price: p }] });
+    const start = toAbs(date, time);
+    const end = start + Math.round(info.hours * 60);
+    const now = new Date();
+    if (start < toAbs(todayIso(), `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`) + 30) {
+      return setErr('وقت الحركة لازم يكون بعد نص ساعة على الأقل من هسه');
+    }
+    // A driver cannot be on two trips at once — keep an hour between trips.
+    const clash = mine.find((t) => {
+      const s = toAbs(t.date, t.time);
+      const e = s + Math.round(t.hours * 60);
+      return start < e + 60 && s < end + 60;
+    });
+    if (clash) return setErr(`عندك رحلة بنفس الوقت: ${clash.label} · ${longDate(clash.date)} · ${clash.time}`);
+    set({ driverTrips: [...driverTrips, { id: 'd' + Date.now(), from: 'بغداد', to, date, time, kind: v.kind, seats: v.seats, price: p, arrive }] });
     showToast('انضافت الرحلة وصارت تطلع للمسافرين');
     back();
   };
@@ -443,51 +468,51 @@ export function DriverAddTrip() {
   return (
     <div className="screen">
       <TopBar title="رحلة جديدة" />
-      <div className="scroll pad stack gap14" style={{ paddingBottom: 20 }}>
-        <div className="row gap10">
-          <div className="field grow"><label>من</label><div className="input" style={{ display: 'flex', alignItems: 'center' }}>بغداد</div></div>
-          <div className="field grow">
-            <label htmlFor="dto">إلى</label>
-            <select id="dto" className="input" value={to} onChange={(e) => setTo(e.target.value)}>
-              {CITIES.filter((c) => c !== 'بغداد').map((c) => <option key={c}>{c}</option>)}
-            </select>
+      <div className="scroll pad stack gap12" style={{ paddingBottom: 20 }}>
+        <div className="card row gap12" style={{ background: '#EEEDF8', border: 0 }}>
+          <span className="df-ic" style={{ background: '#fff' }}><Icon name="bus" size={22} /></span>
+          <div className="grow">
+            <div className="tiny muted">مركبتك المسجّلة</div>
+            <div className="bold">{v.kind} {v.model} · {v.seats} مقعد</div>
+            <div className="tiny muted">{v.plate} · {v.color}</div>
+          </div>
+          <span className="pill ok">ثابتة</span>
+        </div>
+
+        <div className="route-box" style={{ paddingLeft: 14 }}>
+          <div className="route-row">
+            <span className="route-dot" />
+            <div className="grow"><span className="df-label">من</span><div className="route-select">بغداد</div></div>
+          </div>
+          <div className="route-line" />
+          <div className="route-row">
+            <span className="route-dot gold" />
+            <div className="grow">
+              <label className="df-label" htmlFor="dto">إلى</label>
+              <select id="dto" className="route-select" value={to} onChange={(e) => { setTo(e.target.value); setErr(''); }}>
+                {CITIES.filter((c) => c !== 'بغداد').map((c) => <option key={c}>{c}</option>)}
+              </select>
+            </div>
           </div>
         </div>
-        <div className="stack gap8">
-          <span className="label">اليوم</span>
-          <div className="row gap8" style={{ overflowX: 'auto', scrollbarWidth: 'none' }}>
-            {days.map((d) => (
-              <button key={d.iso} className={`chip ${d.iso === date ? 'on' : ''}`} style={{ height: 54, flexDirection: 'column', gap: 0, lineHeight: 1.3, borderRadius: 16, padding: '0 14px' }} onClick={() => setDate(d.iso)}>
-                <span style={{ fontSize: 11 }}>{d.label}</span><span className="num">{d.num}</span>
-              </button>
-            ))}
+
+        <DateField label="يوم الرحلة" value={date} min={todayIso()} onChange={(d) => { setDate(d); setErr(''); }} />
+        <TimeField label="وقت الحركة" value={time} onChange={(t) => { setTime(t); setErr(''); }} />
+
+        <div className="card row gap12" style={{ borderStyle: 'dashed' }}>
+          <span className="df-ic"><Icon name="pin" size={20} /></span>
+          <div className="grow">
+            <div className="tiny muted">الوصول المتوقع إلى {to}</div>
+            <div className="bold"><span className="num" style={{ fontSize: 18 }}>{arrive}</span> {nextDay ? '· اليوم الثاني' : ''}</div>
           </div>
+          <span className="pill info">{info.dur}</span>
         </div>
-        <div className="field">
-          <label htmlFor="dtime">وقت الحركة</label>
-          <input id="dtime" type="time" className="input num" value={time} onChange={(e) => setTime(e.target.value)} />
-        </div>
-        <div className="stack gap8">
-          <span className="label">نوع المركبة</span>
-          <div className="seg">
-            {kinds.map((k) => (
-              <button key={k} className={kind === k ? 'on' : ''} onClick={() => { setKind(k); setSeats(k === 'سيارة' ? 4 : k === 'كوستر' ? 24 : k === 'VIP' ? 32 : 40); }}>{k}</button>
-            ))}
-          </div>
-        </div>
-        <div className="row" style={{ justifyContent: 'space-between' }}>
-          <span className="label">المقاعد المتاحة</span>
-          <div className="row gap12">
-            <button className="iconbtn" aria-label="أقل" onClick={() => setSeats(Math.max(1, seats - 1))}>−</button>
-            <span className="num bold" style={{ fontSize: 20, minWidth: 26, textAlign: 'center' }}>{seats}</span>
-            <button className="iconbtn" aria-label="أكثر" onClick={() => setSeats(Math.min(maxSeats, seats + 1))}>+</button>
-          </div>
-        </div>
+
         <div className="field">
           <label htmlFor="dprice">سعر المقعد (د.ع)</label>
           <input id="dprice" className="input num" inputMode="numeric" dir="ltr" style={{ textAlign: 'right' }} value={price} onChange={(e) => { setPrice(e.target.value.replace(/[^0-9]/g, '')); setErr(''); }} />
         </div>
-        <div className="err">{err}</div>
+        {err ? <div className="card" style={{ background: 'var(--alert-bg)', border: 0, color: 'var(--alert)', fontWeight: 600, fontSize: 14 }}>{err}</div> : null}
       </div>
       <div className="bottombar">
         <button className="btn" onClick={save}>انشر الرحلة</button>
@@ -516,7 +541,7 @@ export function DriverProfile() {
         <div className="pad stack gap12" style={{ marginTop: 16 }}>
           <div className="card stack gap8">
             <div className="h3">المركبة</div>
-            {[['النوع', 'باص كيا جرانبيرد · 40 مقعد'], ['الرقم', 'بغداد 48213 أ'], ['اللون', 'أبيض'], ['الوثائق', 'إجازة السوق ✓ · السنوية ✓']].map(([k, v]) => (
+            {[['النوع', `${DRIVER_VEHICLE.kind} ${DRIVER_VEHICLE.model} · ${DRIVER_VEHICLE.seats} مقعد`], ['الموديل', DRIVER_VEHICLE.year], ['الرقم', DRIVER_VEHICLE.plate], ['اللون', DRIVER_VEHICLE.color], ['الوثائق', 'إجازة السوق ✓ · السنوية ✓']].map(([k, v]) => (
               <div key={k} className="row small" style={{ justifyContent: 'space-between' }}><span className="muted">{k}</span><b>{v}</b></div>
             ))}
           </div>

@@ -5,6 +5,8 @@ import { CITIES, DESTINATIONS, GARAGES, TRIPS, dayList, departedToday, distanceK
 import { Icon } from '../icons';
 import { tripOf, useStore, type Booking } from '../store';
 import { Sheet, Stars, TabBar, TopBar, openExternal } from '../ui';
+import { DateField, prettyDate } from '../pickers';
+import { Avatar } from './Account';
 
 function seatsLeft(t: Trip, mine = 0) {
   return t.capacity - t.booked.length - mine;
@@ -18,7 +20,7 @@ function seatTag(t: Trip, mine = 0) {
 }
 
 export function Home() {
-  const { name, garageId, go, bookings, points } = useStore();
+  const { name, garageId, go, bookings, points, avatar } = useStore();
   const garage = garageById(garageId);
   const upcoming = bookings.filter((b) => b.status === 'confirmed' && b.date >= todayIso()).sort((a, b) => (a.date + tripOf(a).time).localeCompare(b.date + tripOf(b).time))[0];
   const today = TRIPS.filter((t) => t.garageId === garageId && !departedToday(t)).sort((a, b) => a.time.localeCompare(b.time)).slice(0, 8);
@@ -29,8 +31,8 @@ export function Home() {
     <div className="screen">
       <div className="scroll with-tabs" style={{ paddingTop: 'calc(18px + var(--safe-top))' }}>
         <header className="pad row gap14">
-          <button aria-label="حسابي" onClick={() => go('profile')} style={{ width: 60, height: 60, borderRadius: '50%', background: 'var(--lavender)', overflow: 'hidden', position: 'relative', flexShrink: 0 }}>
-            <img src="./img/mascot.png" alt="" style={{ position: 'absolute', top: 4, left: 7, width: 46 }} />
+          <button aria-label="حسابي" onClick={() => go('profile')}>
+            <Avatar size={60} src={avatar} />
           </button>
           <div className="grow">
             <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 21, lineHeight: 1.4 }}>هلاو، {name || 'ضيف'}!</div>
@@ -244,67 +246,147 @@ export function Trips() {
 }
 
 export function Search() {
-  const { go } = useStore();
-  const days = dayList(7);
+  const { go, bookings } = useStore();
   const [from, setFrom] = useState('بغداد');
   const [to, setTo] = useState('البصرة');
-  const [date, setDate] = useState(days[0].iso);
-  const [count, setCount] = useState(1);
+  const [date, setDate] = useState(todayIso());
+  const [family, setFamily] = useState(false);
+  const [count, setCount] = useState(2);
   const [err, setErr] = useState('');
+  const [results, setResults] = useState<Trip[] | null>(null);
+  const passengers = family ? count : 1;
 
-  const submit = () => {
-    if (from === to) return setErr('اختار مدينتين مختلفات');
-    if (from !== 'بغداد' || !DESTINATIONS.includes(to)) return setErr('بالنسخة التجريبية الرحلات من بغداد إلى: ' + DESTINATIONS.join('، '));
-    go('trips', { dest: to, date });
+  const run = () => {
+    if (from === to) {
+      setErr('اختار مدينتين مختلفات');
+      setResults(null);
+      return;
+    }
+    setErr('');
+    const isToday = date === todayIso();
+    const list = TRIPS.filter((t) => t.from === from && t.to === to)
+      .filter((t) => !(isToday && departedToday(t)))
+      .filter((t) => seatsLeft(t, myCount(bookings, t.id, date)) >= passengers)
+      .sort((a, b) => a.time.localeCompare(b.time));
+    setResults(list);
+    window.setTimeout(() => document.getElementById('results')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
   };
 
+  const touch = () => setResults(null);
+
   return (
-    <div className="screen">
-      <div className="topbar" style={{ paddingBottom: 4 }}>
-        <div className="title" style={{ fontSize: 24, fontWeight: 800 }}>دوّر على رحلة</div>
-      </div>
-      <div className="scroll with-tabs pad stack gap14" style={{ paddingTop: 8 }}>
-        <div className="card stack gap10" style={{ padding: 16 }}>
-          <div className="field">
-            <label htmlFor="from">من</label>
-            <select id="from" className="input" value={from} onChange={(e) => { setFrom(e.target.value); setErr(''); }}>
-              {CITIES.map((c) => <option key={c}>{c}</option>)}
-            </select>
-          </div>
-          <button className="iconbtn" aria-label="بدّل" style={{ alignSelf: 'center', marginTop: -4, marginBottom: -4 }} onClick={() => { setFrom(to); setTo(from); setErr(''); }}>
-            <Icon name="swap" size={20} />
-          </button>
-          <div className="field">
-            <label htmlFor="to">إلى</label>
-            <select id="to" className="input" value={to} onChange={(e) => { setTo(e.target.value); setErr(''); }}>
-              {CITIES.map((c) => <option key={c}>{c}</option>)}
-            </select>
+    <div className="screen gray">
+      <div className="scroll with-tabs">
+        <div className="hero" style={{ paddingTop: 'calc(22px + var(--safe-top))', paddingBottom: 70 }}>
+          <div className="pad">
+            <div className="small" style={{ opacity: 0.75 }}>وين ناوي تروح؟</div>
+            <h1 style={{ fontSize: 26, fontWeight: 800 }}>دوّر على رحلتك</h1>
           </div>
         </div>
-        <div className="stack gap8">
-          <span className="label">التاريخ</span>
-          <div className="row gap8" style={{ overflowX: 'auto', scrollbarWidth: 'none' }}>
-            {days.map((d) => (
-              <button key={d.iso} className={`chip ${d.iso === date ? 'on' : ''}`} style={{ height: 58, flexDirection: 'column', gap: 0, lineHeight: 1.3, padding: '0 14px', borderRadius: 16 }} onClick={() => setDate(d.iso)}>
-                <span style={{ fontSize: 11 }}>{d.label}</span>
-                <span className="num">{d.num}</span>
+        <div className="pad" style={{ marginTop: -54 }}>
+          <div className="card stack gap12" style={{ padding: 16, border: 0, boxShadow: '0 12px 30px rgba(11,5,88,.12)' }}>
+            <div className="route-box">
+              <div className="route-row">
+                <span className="route-dot" />
+                <div className="grow">
+                  <label className="df-label" htmlFor="from">من</label>
+                  <select id="from" className="route-select" value={from} onChange={(e) => { setFrom(e.target.value); touch(); }}>
+                    {CITIES.map((c) => <option key={c}>{c}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="route-line" />
+              <div className="route-row">
+                <span className="route-dot gold" />
+                <div className="grow">
+                  <label className="df-label" htmlFor="to">إلى</label>
+                  <select id="to" className="route-select" value={to} onChange={(e) => { setTo(e.target.value); touch(); }}>
+                    {CITIES.map((c) => <option key={c}>{c}</option>)}
+                  </select>
+                </div>
+              </div>
+              <button className="route-swap" aria-label="بدّل الاتجاه" onClick={() => { setFrom(to); setTo(from); touch(); }}>
+                <Icon name="swap" size={20} />
               </button>
-            ))}
+            </div>
+
+            <DateField label="تاريخ السفر" value={date} min={todayIso()} onChange={(d) => { setDate(d); touch(); }} />
+
+            <div className="stack gap8">
+              <span className="label">المسافرين</span>
+              <div className="seg">
+                <button className={!family ? 'on' : ''} onClick={() => { setFamily(false); touch(); }}><Icon name="user" size={16} /> مسافر وحده</button>
+                <button className={family ? 'on' : ''} onClick={() => { setFamily(true); touch(); }}><Icon name="users" size={16} /> عائلة</button>
+              </div>
+              {family ? (
+                <div className="row" style={{ justifyContent: 'space-between', padding: '4px 2px' }}>
+                  <div>
+                    <div className="bold">عدد أفراد العائلة</div>
+                    <div className="tiny muted">كلكم بنفس الحجز وتكعدون سوة</div>
+                  </div>
+                  <div className="row gap12">
+                    <button className="iconbtn" aria-label="أقل" onClick={() => { setCount(Math.max(2, count - 1)); touch(); }}>−</button>
+                    <span className="num bold" style={{ fontSize: 22, minWidth: 24, textAlign: 'center' }}>{count}</span>
+                    <button className="iconbtn" aria-label="أكثر" onClick={() => { setCount(Math.min(12, count + 1)); touch(); }}>+</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="tiny muted" style={{ padding: '0 2px' }}>مقعد واحد. إذا ويّاك عائلتك اختار «عائلة» حتى تحجزون سوة.</div>
+              )}
+            </div>
+            {err ? <div className="err">{err}</div> : null}
+            <button className="btn" onClick={run}><Icon name="search" size={20} /> دوّر</button>
           </div>
         </div>
-        <div className="row" style={{ justifyContent: 'space-between' }}>
-          <div>
-            <div className="label">عدد المسافرين</div>
-            <div className="tiny muted">أكثر شي 4 مقاعد بالحجز الواحد</div>
-          </div>
-          <div className="row gap12">
-            <button className="iconbtn" aria-label="أقل" onClick={() => setCount(Math.max(1, count - 1))}>−</button>
-            <span className="num bold" style={{ fontSize: 20, minWidth: 18, textAlign: 'center' }}>{count}</span>
-            <button className="iconbtn" aria-label="أكثر" onClick={() => setCount(Math.min(4, count + 1))}>+</button>
-          </div>
-        </div>
-        <div className="err">{err}</div>
-        <button className="btn" onClick={submit}><Icon name="search" size={20} /> دوّر</button>
+
+        {results ? (
+          <section id="results" className="pad" style={{ marginTop: 22, scrollMarginTop: 12 }}>
+            <div className="row" style={{ justifyContent: 'space-between', alignItems: 'baseline' }}>
+              <h2 className="h3">{from} ← {to}</h2>
+              <span className="small muted">{prettyDate(date)} · {passengers} {passengers === 1 ? 'مسافر' : 'مسافرين'}</span>
+            </div>
+            <div className="stack gap10" style={{ marginTop: 10 }}>
+              {results.length === 0 ? (
+                <div className="card empty" style={{ padding: 22 }}>
+                  <Icon name="bus" size={34} />
+                  <b style={{ color: 'var(--ink)' }}>ما لكينا رحلات بهالطلب</b>
+                  <span className="small">جرّب يوم ثاني أو عدد مسافرين أقل.</span>
+                </div>
+              ) : (
+                results.map((t) => {
+                  const left = seatsLeft(t, myCount(bookings, t.id, date));
+                  return (
+                    <button key={t.id} className="card stack gap8" style={{ textAlign: 'right' }} onClick={() => go('seats', { tripId: t.id, date, count: passengers, family })}>
+                      <div className="row gap12">
+                        <div>
+                          <div className="num" style={{ fontWeight: 800, fontSize: 22, color: 'var(--navy)' }}>{t.time}</div>
+                          <div className="tiny muted">{t.from}</div>
+                        </div>
+                        <span className="dash" />
+                        <span className="tiny muted center" style={{ lineHeight: 1.3 }}>{t.duration}</span>
+                        <span className="dash" />
+                        <div style={{ textAlign: 'left' }}>
+                          <div className="num" style={{ fontWeight: 800, fontSize: 22, color: 'var(--navy)' }}>{t.arrive}</div>
+                          <div className="tiny muted">{t.to}</div>
+                        </div>
+                      </div>
+                      <div className="row gap6 small muted" style={{ flexWrap: 'wrap' }}>
+                        <span className="bold" style={{ color: 'var(--ink)' }}>{t.company}</span>
+                        <span>·</span><Stars rate={t.rating} />
+                        <span>·</span><span>{t.kind}</span>
+                        <span>·</span><span>{garageById(t.garageId).name}</span>
+                      </div>
+                      <div className="row" style={{ justifyContent: 'space-between' }}>
+                        <span className={`pill ${left <= 4 ? 'bad' : 'ok'}`}>باقي {left}</span>
+                        <span><span className="num bold" style={{ fontSize: 17 }}>{money(t.price * passengers)}</span> <span className="tiny muted">د.ع{passengers > 1 ? ` · ${passengers} مقاعد` : ''}</span></span>
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </section>
+        ) : null}
       </div>
       <TabBar active="search" />
     </div>

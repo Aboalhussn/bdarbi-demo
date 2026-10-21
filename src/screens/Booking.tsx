@@ -5,8 +5,9 @@ import { COUPONS, garageById, longDate, money, newCode, todayIso, tripById, type
 import { Icon } from '../icons';
 import { ticketPayload, tripOf, useStore, type Booking } from '../store';
 import { QR, Sheet, TabBar, TopBar } from '../ui';
+import { Avatar } from './Account';
 
-const MAX_SEATS = 4;
+const FAMILY_MAX = 12;
 
 function takenSeats(trip: Trip, date: string, bookings: Booking[]) {
   const mine = bookings.filter((b) => b.tripId === trip.id && b.date === date && b.status === 'confirmed').flatMap((b) => b.seats);
@@ -18,11 +19,15 @@ export function Seats() {
   const trip = tripById(String(route.params?.tripId)) ?? null;
   const date = String(route.params?.date ?? todayIso());
   const [sel, setSel] = useState<number[]>([]);
-  const [family, setFamily] = useState(true);
+  const wanted = Number(route.params?.count ?? 0);
+  const [family, setFamily] = useState(route.params?.family === true || wanted > 1);
   const [warn, setWarn] = useState('');
   const taken = useMemo(() => (trip ? takenSeats(trip, date, bookings) : new Set<number>()), [trip, date, bookings]);
 
   if (!trip) return <Missing />;
+  // A family books several seats together; someone travelling alone books one seat.
+  const limit = family ? Math.min(wanted > 1 ? wanted : FAMILY_MAX, trip.capacity) : 1;
+  const exact = family && wanted > 1;
 
   const pick = (n: number) => {
     if (taken.has(n)) return;
@@ -31,8 +36,13 @@ export function Seats() {
       setWarn('');
       return;
     }
-    if (sel.length >= MAX_SEATS) {
-      setWarn('الحد الأقصى 4 مقاعد بالحجز الواحد.');
+    if (!family) {
+      setSel([n]);
+      setWarn('');
+      return;
+    }
+    if (sel.length >= limit) {
+      setWarn(exact ? `اخترت ${limit} مقاعد، عدد أفراد العائلة. شيل مقعد إذا تريد تبدّل.` : `أكثر شي ${limit} مقاعد بالحجز الواحد.`);
       return;
     }
     setSel([...sel, n].sort((a, b) => a - b));
@@ -66,7 +76,7 @@ export function Seats() {
     }
   }
 
-  const hint = warn || (family ? 'تكدر تحجز لحد 4 مقاعد للعائلة بنفس الحجز.' : 'راح نرتّب المقاعد حسب الجنس، وتكدر تختار مقاعد النساء.');
+  const hint = warn || (family ? (exact ? `اختار ${limit} مقاعد لأفراد العائلة، يفضّل جنب بعض.` : 'عائلة: تكدر تحجز أكثر من مقعد بنفس الحجز.') : 'مسافر وحده: مقعد واحد. مقاعد النساء باللون الوردي.');
 
   return (
     <div className="screen">
@@ -106,12 +116,12 @@ export function Seats() {
       </div>
       <div className="bottombar stack gap10" style={{ borderRadius: '28px 28px 0 0', boxShadow: '0 -8px 30px rgba(11,5,88,.08)', borderTop: 0 }}>
         <div className="seg" role="radiogroup" aria-label="نوع المسافرين">
-          <button role="radio" aria-checked={family} className={family ? 'on' : ''} onClick={() => setFamily(true)}>عائلة وحدة</button>
-          <button role="radio" aria-checked={!family} className={!family ? 'on' : ''} onClick={() => setFamily(false)}>مو عائلة وحدة</button>
+          <button role="radio" aria-checked={!family} className={!family ? 'on' : ''} onClick={() => { setFamily(false); setSel(sel.slice(0, 1)); setWarn(''); }}>مسافر وحده</button>
+          <button role="radio" aria-checked={family} className={family ? 'on' : ''} onClick={() => { setFamily(true); setWarn(''); }}>عائلة</button>
         </div>
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <div>
-            <div className="small muted">المقاعد المختارة <b style={{ color: 'var(--navy)' }}>(<span className="num">{sel.length}/4</span>)</b></div>
+            <div className="small muted">المقاعد المختارة <b style={{ color: 'var(--navy)' }}>(<span className="num">{sel.length}/{limit}</span>)</b></div>
             <div className="bold">{sel.length ? sel.map((n) => `رقم ${n}`).join('، ') : 'ما اخترت بعد'}</div>
           </div>
           <div style={{ textAlign: 'left' }}>
@@ -120,7 +130,9 @@ export function Seats() {
           </div>
         </div>
         <div className="tiny bold" style={{ color: warn ? '#B23A4C' : 'var(--slate)', minHeight: 18 }}>{hint}</div>
-        <button className="btn" disabled={!sel.length} onClick={() => go('checkout', { tripId: trip.id, date, seats: sel, family })}>حجز المقعد</button>
+        <button className="btn" disabled={!sel.length || (exact && sel.length !== limit)} onClick={() => go('checkout', { tripId: trip.id, date, seats: sel, family })}>
+          {exact && sel.length !== limit ? `باقي تختار ${limit - sel.length}` : sel.length > 1 ? `حجز ${sel.length} مقاعد` : 'حجز المقعد'}
+        </button>
       </div>
     </div>
   );
@@ -140,14 +152,19 @@ function Missing() {
   );
 }
 
-const PAYMENTS = [
+const BASE_PAYMENTS = [
   { id: 'cash', label: 'نقداً بالكراج', note: 'ادفع للسائق قبل الحركة', icon: 'cash' },
   { id: 'zain', label: 'زين كاش', note: 'تحويل من محفظتك', icon: 'wallet' },
-  { id: 'card', label: 'بطاقة (ماستر / كي كارد)', note: 'دفع إلكتروني', icon: 'card' },
 ];
 
 export function Checkout() {
-  const { route, name, phone, addBooking, reset, go, usedCoupons, set, bookings } = useStore();
+  const { route, name, phone, addBooking, reset, go, usedCoupons, set, bookings, card } = useStore();
+  const PAYMENTS = [
+    ...BASE_PAYMENTS,
+    card
+      ? { id: 'card', label: `${card.brand} ${card.first4} ••••`, note: 'بطاقتك المحفوظة', icon: 'card' }
+      : { id: 'card', label: 'بطاقة (ماستر / كي كارد)', note: 'ضيف بطاقة بالمحفظة أول', icon: 'card' },
+  ];
   const trip = tripById(String(route.params?.tripId));
   const date = String(route.params?.date ?? todayIso());
   const seats = (route.params?.seats as number[] | undefined) ?? [];
@@ -245,7 +262,7 @@ export function Checkout() {
         <div className="stack gap8">
           <span className="label">طريقة الدفع</span>
           {PAYMENTS.map((p) => (
-            <button key={p.id} role="radio" aria-checked={pay === p.id} className={`radio ${pay === p.id ? 'on' : ''}`} onClick={() => setPay(p.id)}>
+            <button key={p.id} role="radio" aria-checked={pay === p.id} className={`radio ${pay === p.id ? 'on' : ''}`} onClick={() => (p.id === 'card' && !card ? go('wallet') : setPay(p.id))}>
               <span className="dot" />
               <span className="grow">
                 <span className="bold" style={{ display: 'block' }}>{p.label}</span>
@@ -284,7 +301,7 @@ export function Checkout() {
 }
 
 export function Ticket() {
-  const { route, bookings, reset, back, boardedAt, cancelBooking, showToast, name } = useStore();
+  const { route, bookings, reset, boardedAt, cancelBooking, showToast, name } = useStore();
   const code = String(route.params?.code);
   const fresh = route.params?.fresh === true;
   const b = bookings.find((x) => x.code === code);
@@ -313,22 +330,22 @@ export function Ticket() {
   return (
     <div className="screen navy hero" style={{ borderRadius: 0 }}>
       <div className="scroll" style={{ paddingTop: 'var(--safe-top)', paddingBottom: 'calc(24px + var(--safe-bottom))' }}>
-        <div className="row" style={{ padding: '16px 20px 0', alignItems: 'flex-start' }}>
+        <div className="row gap14" style={{ padding: '14px 20px 0', alignItems: 'center' }}>
+          <img src="./img/mascot.png" alt="" style={{ height: 180, width: 'auto', flexShrink: 0 }} />
           <div className="grow">
             {fresh ? (
               <>
-                <div style={{ width: 46, height: 46, borderRadius: '50%', background: '#2FB36B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="check" size={26} stroke={3} /></div>
-                <h1 style={{ fontSize: 28, fontWeight: 800, marginTop: 10 }}>تم الحجز!</h1>
-                <p style={{ margin: 0, color: 'rgba(255,255,255,.8)' }}>رحلة سعيدة يا {name && name !== 'ضيف' ? name : b.name.split(' ')[0]}، تذكرتك هنا وبـ «رحلاتي».</p>
+                <div style={{ width: 42, height: 42, borderRadius: '50%', background: '#2FB36B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="check" size={24} stroke={3} /></div>
+                <h1 style={{ fontSize: 28, fontWeight: 800, marginTop: 8 }}>تم الحجز!</h1>
+                <p style={{ margin: 0, color: 'rgba(255,255,255,.8)', fontSize: 14 }}>رحلة سعيدة يا {name && name !== 'ضيف' ? name : b.name.split(' ')[0]}، تذكرتك هنا وبـ «رحلاتي».</p>
               </>
             ) : (
               <>
-                <button className="iconbtn" aria-label="رجوع" onClick={() => { if (!back()) reset('home'); }}><Icon name="back" size={20} /></button>
-                <h1 style={{ fontSize: 26, fontWeight: 800, marginTop: 12 }}>تذكرتك</h1>
+                <h1 style={{ fontSize: 30, fontWeight: 800 }}>تذكرتك</h1>
+                <p style={{ margin: 0, color: 'rgba(255,255,255,.8)', fontSize: 14 }}>{trip.from} ← {trip.to} · {longDate(b.date)}</p>
               </>
             )}
           </div>
-          <img src="./img/mascot.png" alt="" style={{ height: 190, width: 'auto', marginTop: -6 }} />
         </div>
 
         <div className="ticket" style={{ margin: '6px 20px 0' }}>
@@ -443,10 +460,12 @@ export function MyTrips() {
 }
 
 export function Profile() {
-  const { name, phone, points, bookings, go, reset, set, resetDemo } = useStore();
+  const { name, phone, points, bookings, go, reset, set, resetDemo, avatar, card } = useStore();
   const [about, setAbout] = useState(false);
   const [wipe, setWipe] = useState(false);
   const items: [string, string, () => void][] = [
+    ['user', 'معلوماتك الشخصية', () => go('personalInfo')],
+    ['wallet', card ? `المحفظة · بطاقة ${card.first4} ••••` : 'المحفظة', () => go('wallet')],
     ['ticket', 'رحلاتي', () => go('myTrips')],
     ['gift', 'المكافآت والكوبونات', () => go('rewards')],
     ['hotel', 'الفنادق', () => go('hotels')],
@@ -461,9 +480,7 @@ export function Profile() {
       <div className="scroll with-tabs">
         <div className="hero" style={{ paddingTop: 'calc(26px + var(--safe-top))', paddingBottom: 26 }}>
           <div className="pad row gap14">
-            <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'var(--lavender)', overflow: 'hidden', position: 'relative', flexShrink: 0 }}>
-              <img src="./img/mascot.png" alt="" style={{ position: 'absolute', top: 4, left: 9, width: 54 }} />
-            </div>
+            <button onClick={() => go('personalInfo')} aria-label="معلوماتك الشخصية"><Avatar size={72} src={avatar} /></button>
             <div className="grow">
               <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 22 }}>{name || 'ضيف'}</div>
               <div className="num small" style={{ opacity: 0.8, textAlign: 'right' }}>{phone ? `+964 ${phone}` : 'ما مسجّل رقم'}</div>

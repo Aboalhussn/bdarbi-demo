@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { CITIES, HOTELS, dayList, money } from '../data';
+import { CITIES, HOTELS, money, todayIso } from '../data';
+import { DateField, RangeField, addDays, nightsBetween, prettyDate, shortDate } from '../pickers';
 import { Icon } from '../icons';
 import { useStore } from '../store';
 import { Sheet, Stars, TopBar, openExternal } from '../ui';
@@ -41,15 +42,15 @@ export function Hotels() {
 export function HotelDetails() {
   const { route, back } = useStore();
   const h = HOTELS.find((x) => x.id === route.params?.id) ?? HOTELS[0];
-  const days = dayList(7);
   const [room, setRoom] = useState(1);
   const [fav, setFav] = useState(false);
-  const [inDay, setInDay] = useState(1);
-  const [nights, setNights] = useState(2);
+  const [checkIn, setCheckIn] = useState(addDays(todayIso(), 1));
+  const [checkOut, setCheckOut] = useState(addDays(todayIso(), 3));
   const [sheet, setSheet] = useState(false);
+  const nights = nightsBetween(checkIn, checkOut);
   const total = h.rooms[room].price * nights;
 
-  const msg = `هلا، أريد أحجز ${h.rooms[room].name} بـ${h.name} من ${days[inDay].long} لمدة ${nights} ليالي. شنو المتوفر؟ (من تطبيق بدربي)`;
+  const msg = `هلا، أريد أحجز ${h.rooms[room].name} بـ${h.name} من ${prettyDate(checkIn)} إلى ${prettyDate(checkOut)} (${nights} ليالي). شنو المتوفر؟ (من تطبيق بدربي)`;
 
   return (
     <div className="screen">
@@ -88,27 +89,13 @@ export function HotelDetails() {
               </button>
             ))}
           </div>
-          <h2 className="h3" style={{ margin: '18px 0 10px' }}>الوصول</h2>
-          <div className="row gap8" style={{ overflowX: 'auto', scrollbarWidth: 'none' }}>
-            {days.map((d, i) => (
-              <button key={d.iso} className={`chip ${i === inDay ? 'on' : ''}`} style={{ height: 54, flexDirection: 'column', gap: 0, lineHeight: 1.3, borderRadius: 16, padding: '0 14px' }} onClick={() => setInDay(i)}>
-                <span style={{ fontSize: 11 }}>{d.label}</span><span className="num">{d.num}</span>
-              </button>
-            ))}
-          </div>
-          <div className="row" style={{ justifyContent: 'space-between', marginTop: 14 }}>
-            <span className="label">عدد الليالي</span>
-            <div className="row gap12">
-              <button className="iconbtn" aria-label="أقل" onClick={() => setNights(Math.max(1, nights - 1))}>−</button>
-              <span className="num bold" style={{ fontSize: 20 }}>{nights}</span>
-              <button className="iconbtn" aria-label="أكثر" onClick={() => setNights(Math.min(14, nights + 1))}>+</button>
-            </div>
-          </div>
+          <h2 className="h3" style={{ margin: '18px 0 10px' }}>تاريخ الإقامة</h2>
+          <RangeField start={checkIn} end={checkOut} min={todayIso()} onChange={(a, b) => { setCheckIn(a); setCheckOut(b); }} />
         </div>
       </div>
       <div className="bottombar row gap14">
         <div className="grow">
-          <div className="tiny muted">{nights} ليالي · تقريباً</div>
+          <div className="tiny muted"><span className="num">{nights}</span> ليالي · تقريباً</div>
           <div className="num" style={{ fontWeight: 800, fontSize: 21, color: 'var(--navy)' }}>{money(total)} د.ع</div>
         </div>
         <button className="btn" style={{ width: 180 }} onClick={() => setSheet(true)}>أحجز الغرفة</button>
@@ -116,7 +103,7 @@ export function HotelDetails() {
       <Sheet open={sheet} onClose={() => setSheet(false)} label="احجز مع الفندق مباشرة">
         <div className="stack gap12">
           <h2 className="h2">احجز مع الفندق مباشرة</h2>
-          <p className="muted" style={{ margin: 0 }}>{h.rooms[room].name} · {nights} ليالي من {days[inDay].long}</p>
+          <p className="muted" style={{ margin: 0 }}>{h.rooms[room].name} · {nights} ليالي · {shortDate(checkIn)} ← {shortDate(checkOut)}</p>
           <button className="btn green" onClick={() => openExternal(`https://wa.me/?text=${encodeURIComponent(msg)}`)}>
             <Icon name="whatsapp" size={22} /> واتساب
           </button>
@@ -133,9 +120,8 @@ export function HotelDetails() {
 
 export function Coaster() {
   const { back, showToast } = useStore();
-  const days = dayList(10);
   const [to, setTo] = useState('كربلاء المقدسة');
-  const [date, setDate] = useState(days[2].iso);
+  const [date, setDate] = useState(addDays(todayIso(), 2));
   const [people, setPeople] = useState(14);
   const [round, setRound] = useState(true);
   const [sent, setSent] = useState(false);
@@ -169,16 +155,7 @@ export function Coaster() {
             {CITIES.filter((c) => c !== 'بغداد').map((c) => <option key={c}>{c}</option>)}
           </select>
         </div>
-        <div className="stack gap8">
-          <span className="label">التاريخ</span>
-          <div className="row gap8" style={{ overflowX: 'auto', scrollbarWidth: 'none' }}>
-            {days.map((d) => (
-              <button key={d.iso} className={`chip ${d.iso === date ? 'on' : ''}`} style={{ height: 54, flexDirection: 'column', gap: 0, lineHeight: 1.3, borderRadius: 16, padding: '0 14px' }} onClick={() => setDate(d.iso)}>
-                <span style={{ fontSize: 11 }}>{d.label}</span><span className="num">{d.num}</span>
-              </button>
-            ))}
-          </div>
-        </div>
+        <DateField label="تاريخ الرحلة" value={date} min={todayIso()} onChange={setDate} />
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <span className="label">عدد الأشخاص</span>
           <div className="row gap12">
