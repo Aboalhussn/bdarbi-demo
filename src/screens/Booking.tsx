@@ -121,8 +121,8 @@ export function Seats() {
         </div>
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <div>
-            <div className="small muted">المقاعد المختارة <b style={{ color: 'var(--navy)' }}>(<span className="num">{sel.length}/{limit}</span>)</b></div>
-            <div className="bold">{sel.length ? sel.map((n) => `رقم ${n}`).join('، ') : 'ما اخترت بعد'}</div>
+            <div className="small muted">المقاعد المختارة</div>
+            <div className="num bold" style={{ fontSize: 21, color: 'var(--navy)', textAlign: 'right' }}>{sel.length} / {limit}</div>
           </div>
           <div style={{ textAlign: 'left' }}>
             <div className="small muted">المجموع</div>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { fmt12, isoDate } from './data';
 import { Icon } from './icons';
 import { Sheet } from './ui';
@@ -176,7 +176,7 @@ export function TimeField({ label, value, onChange }: { label: string; value: st
   const show = () => {
     const [h, mm] = value.split(':').map(Number);
     setH12(h % 12 === 0 ? 12 : h % 12);
-    setM(mm - (mm % 5));
+    setM(mm);
     setPm(h >= 12);
     setMode('hour');
     setOpen(true);
@@ -184,6 +184,21 @@ export function TimeField({ label, value, onChange }: { label: string; value: st
   const to24 = () => {
     const h = (h12 % 12) + (pm ? 12 : 0);
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  };
+
+  const dialRef = useRef<HTMLDivElement>(null);
+  const dragging = useRef(false);
+  // Turn a touch point on the dial into an hour (1-12) or a minute (0-59).
+  const pickAt = (x: number, y: number) => {
+    const box = dialRef.current?.getBoundingClientRect();
+    if (!box) return;
+    const deg = ((Math.atan2(y - (box.top + box.height / 2), x - (box.left + box.width / 2)) * 180) / Math.PI + 90 + 360) % 360;
+    if (mode === 'hour') {
+      const h = Math.round(deg / 30) % 12;
+      setH12(h === 0 ? 12 : h);
+    } else {
+      setM(Math.round(deg / 6) % 60);
+    }
   };
 
   const R = 104; // dial radius for the numbers
@@ -216,30 +231,38 @@ export function TimeField({ label, value, onChange }: { label: string; value: st
           </div>
         </div>
         <div className="small muted center" style={{ marginTop: 2 }}>{mode === 'hour' ? 'اختار الساعة' : 'اختار الدقائق'}</div>
-        <div className="dial">
+        <div
+          className="dial"
+          ref={dialRef}
+          onPointerDown={(e) => {
+            dragging.current = true;
+            (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+            pickAt(e.clientX, e.clientY);
+          }}
+          onPointerMove={(e) => {
+            if (dragging.current) pickAt(e.clientX, e.clientY);
+          }}
+          onPointerUp={() => {
+            dragging.current = false;
+            if (mode === 'hour') window.setTimeout(() => setMode('minute'), 250);
+          }}
+          onPointerCancel={() => {
+            dragging.current = false;
+          }}
+        >
           <div className="dial-hand" style={{ width: R, transform: `rotate(${(a * 180) / Math.PI}deg)` }} />
+          <div className="dial-knob" style={{ transform: `translate(${Math.cos(a) * R}px, ${Math.sin(a) * R}px)` }} />
           <div className="dial-center" />
           {items.map((n) => {
             const an = angleOf(n);
-            const x = Math.cos(an) * R;
-            const y = Math.sin(an) * R;
             return (
-              <button
-                key={n}
-                className={`dial-num num ${n === selected ? 'on' : ''}`}
-                style={{ transform: `translate(${x}px, ${y}px)` }}
-                onClick={() => {
-                  if (mode === 'hour') {
-                    setH12(n);
-                    setMode('minute');
-                  } else setM(n);
-                }}
-              >
+              <span key={n} className={`dial-num num ${n === selected ? 'on' : ''}`} style={{ transform: `translate(${Math.cos(an) * R}px, ${Math.sin(an) * R}px)` }}>
                 {mode === 'hour' ? n : String(n).padStart(2, '0')}
-              </button>
+              </span>
             );
           })}
         </div>
+        <div className="tiny muted center" style={{ marginTop: -6, marginBottom: 10 }}>اسحب العقرب بإصبعك أو اضغط على الرقم</div>
         <button className="btn" onClick={() => { onChange(to24()); setOpen(false); }}>تم · {fmt12(to24())}</button>
       </Sheet>
     </>

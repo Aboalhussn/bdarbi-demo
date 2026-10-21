@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import jsQR from 'jsqr';
-import { CITIES, DRIVER_TRIP_ID, DRIVER_VEHICLE, addHours, fmt12, garageById, longDate, money, routeInfo, todayIso, tripById } from '../data';
+import { CITIES, DRIVER_TRIP_ID, DRIVER_VEHICLE, GARAGES, addHours, fmt12, garageById, longDate, money, routeInfo, todayIso, tripById } from '../data';
 import { DateField, TimeField, addDays } from '../pickers';
 import { Icon } from '../icons';
 import { useStore, type Booking, type ScanOutcome } from '../store';
@@ -78,12 +78,12 @@ export function DriverHome() {
           {driverTrips.length === 0 ? (
             <div className="card center small muted">ما عندك رحلات ثانية. أضف رحلة حتى تطلع للمسافرين.</div>
           ) : (
-            driverTrips.map((t) => (
+            [...driverTrips].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)).map((t) => (
               <div key={t.id} className="card row gap12">
                 <div className="num" style={{ fontWeight: 800, fontSize: 20, color: 'var(--navy)' }}><Time v={t.time} /></div>
                 <div className="grow">
                   <div className="bold">{t.from} ← {t.to}</div>
-                  <div className="small muted">{longDate(t.date)} · يوصل {t.arrive ? fmt12(t.arrive) : ''} · {t.seats} مقعد · <span className="num">{money(t.price)}</span> د.ع</div>
+                  <div className="small muted">{longDate(t.date)} · {t.garageId ? garageById(t.garageId).name + ' · ' : ''}يوصل {t.arrive ? fmt12(t.arrive) : ''} · {t.seats} مقعد · <span className="num">{money(t.price)}</span> د.ع</div>
                 </div>
                 <span className="pill ok">منشورة</span>
               </div>
@@ -109,11 +109,11 @@ export function DriverTrip() {
 
   const seat = (n: number) => {
     const b = bySeat.get(n);
-    const cls = b ? (boardedAt(b) ? 'boarded' : b.createdAt > 0 ? 'mine' : 'taken') : '';
+    const cls = b ? (boardedAt(b) ? 'boarded' : 'taken') : '';
     return (
-      <button key={n} className={`seat ${cls}`} style={b && !boardedAt(b) && b.createdAt === 0 ? { background: '#E4E2EE', color: 'var(--navy)', borderColor: '#CFCCE0' } : undefined} onClick={() => b && setSel(b)} aria-label={`مقعد ${n}${b ? ' ' + b.name : ' فارغ'}`}>
+      <span key={n} className={`seat seat-static ${cls}`} aria-label={`مقعد ${n}${b ? (boardedAt(b) ? ' صعد' : ' محجوز') : ' فارغ'}`}>
         {n}
-      </button>
+      </span>
     );
   };
 
@@ -131,9 +131,8 @@ export function DriverTrip() {
     <div className="screen">
       <TopBar title={`${trip.from} ← ${trip.to}`} sub={<>اليوم · <span className="num"><Time v={trip.time} /></span> · صعدوا <b className="num">{boarded}/{seats}</b></>} right={<button className="iconbtn" aria-label="مسح تذكرة" onClick={() => go('driverScan')} style={{ background: 'var(--navy)', color: '#fff' }}><Icon name="scan" size={22} /></button>} />
       <div className="legend" style={{ padding: '0 20px 10px' }}>
-        <span><i style={{ background: '#E4E2EE' }} />محجوز</span>
+        <span><i style={{ background: '#DCDAE6' }} />محجوز</span>
         <span><i style={{ background: 'var(--success-bg)', border: '1.5px solid #9BD1B1' }} />صعد</span>
-        <span><i style={{ background: 'var(--gold)' }} />حجز من التطبيق</span>
         <span><i style={{ border: '1.5px solid var(--mist)' }} />فارغ</span>
       </div>
       <div className="scroll with-tabs pad">
@@ -425,43 +424,111 @@ function toAbs(date: string, time: string) {
   return Date.UTC(y, mo - 1, d) / 60000 + h * 60 + m;
 }
 
+/** Hours between two cities. Routes run through Baghdad, so two other cities add both legs. */
+function hoursBetween(a: string, b: string) {
+  if (a === 'بغداد') return routeInfo(b).hours;
+  if (b === 'بغداد') return routeInfo(a).hours;
+  return routeInfo(a).hours + routeInfo(b).hours;
+}
+
+function durLabel(hours: number) {
+  const h = Math.floor(hours);
+  const half = hours - h >= 0.5;
+  return h === 0 ? 'نص ساعة' : `${h} ${h === 1 ? 'ساعة' : h === 2 ? 'ساعتين' : 'ساعات'}${half ? ' ونص' : ''}`;
+}
+
+function garagesIn(city: string) {
+  return GARAGES.filter((g) => g.city === city);
+}
+
+function GaragePick({ label, city, value, onChange }: { label: string; city: string; value: string; onChange: (id: string) => void }) {
+  const list = garagesIn(city);
+  return (
+    <div className="stack gap6">
+      <span className="label">{label}</span>
+      <div className="stack gap6">
+        {list.map((g) => (
+          <button key={g.id} role="radio" aria-checked={value === g.id} className={`radio ${value === g.id ? 'on' : ''}`} style={{ height: 58 }} onClick={() => onChange(g.id)}>
+            <span className="dot" />
+            <span className="grow">
+              <span className="bold" style={{ display: 'block' }}>{g.name}</span>
+              <span className="tiny muted">{g.address}</span>
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function DriverAddTrip() {
   const { driverTrips, set, back, showToast } = useStore();
+  const [from, setFrom] = useState('بغداد');
   const [to, setTo] = useState('البصرة');
+  const [fromGarage, setFromGarage] = useState(garagesIn('بغداد')[0].id);
+  const [toGarage, setToGarage] = useState(garagesIn('البصرة')[0].id);
+  const [round, setRound] = useState(false);
   const [date, setDate] = useState(addDays(todayIso(), 1));
   const [time, setTime] = useState('08:00');
+  const [backDate, setBackDate] = useState(addDays(todayIso(), 2));
+  const [backTime, setBackTime] = useState('16:00');
   const [price, setPrice] = useState('25000');
   const [err, setErr] = useState('');
   const v = DRIVER_VEHICLE;
-  const info = routeInfo(to);
-  const arrive = addHours(time, info.hours);
-  const nextDay = toAbs(date, time) + Math.round(info.hours * 60) >= toAbs(addDays(date, 1), '00:00');
+  const hours = hoursBetween(from, to);
+  const mins = Math.round(hours * 60);
+  const arrive = addHours(time, hours);
+  const backArrive = addHours(backTime, hours);
+  const crosses = (d: string, t: string) => toAbs(d, t) + mins >= toAbs(addDays(d, 1), '00:00');
+
+  const changeFrom = (c: string) => {
+    setFrom(c);
+    setFromGarage(garagesIn(c)[0]?.id ?? '');
+    if (c === to) {
+      const other = CITIES.find((x) => x !== c)!;
+      setTo(other);
+      setToGarage(garagesIn(other)[0]?.id ?? '');
+    }
+    setErr('');
+  };
+  const changeTo = (c: string) => {
+    setTo(c);
+    setToGarage(garagesIn(c)[0]?.id ?? '');
+    setErr('');
+  };
 
   // Everything this driver already drives: today's trip plus trips he added.
   const current = tripById(DRIVER_TRIP_ID)!;
   const mine = [
-    { label: `${current.from} ← ${current.to}`, date: todayIso(), time: current.time, hours: routeInfo(current.to).hours },
-    ...driverTrips.map((t) => ({ label: `${t.from} ← ${t.to}`, date: t.date, time: t.time, hours: routeInfo(t.to).hours })),
+    { label: `${current.from} ← ${current.to}`, date: todayIso(), time: current.time, mins: Math.round(routeInfo(current.to).hours * 60) },
+    ...driverTrips.map((t) => ({ label: `${t.from} ← ${t.to}`, date: t.date, time: t.time, mins: Math.round(hoursBetween(t.from, t.to) * 60) })),
   ];
 
   const save = () => {
     const p = Number(price.replace(/[^0-9]/g, ''));
     if (!p || p < 1000) return setErr('اكتب سعر المقعد');
-    const start = toAbs(date, time);
-    const end = start + Math.round(info.hours * 60);
+    if (!fromGarage || !toGarage) return setErr('اختار الكراج');
     const now = new Date();
-    if (start < toAbs(todayIso(), `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`) + 30) {
-      return setErr('وقت الحركة لازم يكون بعد نص ساعة على الأقل من هسه');
+    const nowAbs = toAbs(todayIso(), `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
+    const legs = [{ label: `${from} ← ${to}`, date, time, start: toAbs(date, time) }];
+    if (round) legs.push({ label: `${to} ← ${from}`, date: backDate, time: backTime, start: toAbs(backDate, backTime) });
+    if (legs[0].start < nowAbs + 30) return setErr('وقت الحركة لازم يكون بعد نص ساعة على الأقل من هسه');
+    if (round && legs[1].start < legs[0].start + mins + 60) {
+      return setErr(`الإياب لازم يكون بعد ما توصل ${to} بساعة على الأقل (توصل ${fmt12(arrive)} ${crosses(date, time) ? 'باليوم الثاني' : ''})`);
     }
     // A driver cannot be on two trips at once — keep an hour between trips.
-    const clash = mine.find((t) => {
-      const s = toAbs(t.date, t.time);
-      const e = s + Math.round(t.hours * 60);
-      return start < e + 60 && s < end + 60;
-    });
-    if (clash) return setErr(`عندك رحلة بنفس الوقت: ${clash.label} · ${longDate(clash.date)} · ${fmt12(clash.time)}`);
-    set({ driverTrips: [...driverTrips, { id: 'd' + Date.now(), from: 'بغداد', to, date, time, kind: v.kind, seats: v.seats, price: p, arrive }] });
-    showToast('انضافت الرحلة وصارت تطلع للمسافرين');
+    for (const leg of legs) {
+      const clash = mine.find((t) => {
+        const s0 = toAbs(t.date, t.time);
+        return leg.start < s0 + t.mins + 60 && s0 < leg.start + mins + 60;
+      });
+      if (clash) return setErr(`${round ? (leg === legs[0] ? 'الذهاب: ' : 'الإياب: ') : ''}عندك رحلة بنفس الوقت — ${clash.label} · ${longDate(clash.date)} · ${fmt12(clash.time)}`);
+    }
+    const base = Date.now();
+    const out = { id: 'd' + base, from, to, date, time, kind: v.kind, seats: v.seats, price: p, arrive, garageId: fromGarage };
+    const ret = { id: 'd' + (base + 1), from: to, to: from, date: backDate, time: backTime, kind: v.kind, seats: v.seats, price: p, arrive: backArrive, garageId: toGarage };
+    set({ driverTrips: [...driverTrips, out, ...(round ? [ret] : [])] });
+    showToast(round ? 'انضافت رحلتين: الذهاب والإياب' : 'انضافت الرحلة وصارت تطلع للمسافرين');
     back();
   };
 
@@ -479,34 +546,63 @@ export function DriverAddTrip() {
           <span className="pill ok">ثابتة</span>
         </div>
 
-        <div className="route-box" style={{ paddingLeft: 14 }}>
+        <div className="seg">
+          <button className={!round ? 'on' : ''} onClick={() => { setRound(false); setErr(''); }}>ذهاب بس</button>
+          <button className={round ? 'on' : ''} onClick={() => { setRound(true); setErr(''); }}>ذهاب وإياب</button>
+        </div>
+
+        <div className="route-box">
           <div className="route-row">
             <span className="route-dot" />
-            <div className="grow"><span className="df-label">من</span><div className="route-select">بغداد</div></div>
+            <div className="grow">
+              <label className="df-label" htmlFor="dfrom">من</label>
+              <select id="dfrom" className="route-select" value={from} onChange={(e) => changeFrom(e.target.value)}>
+                {CITIES.map((c) => <option key={c}>{c}</option>)}
+              </select>
+            </div>
           </div>
           <div className="route-line" />
           <div className="route-row">
             <span className="route-dot gold" />
             <div className="grow">
               <label className="df-label" htmlFor="dto">إلى</label>
-              <select id="dto" className="route-select" value={to} onChange={(e) => { setTo(e.target.value); setErr(''); }}>
-                {CITIES.filter((c) => c !== 'بغداد').map((c) => <option key={c}>{c}</option>)}
+              <select id="dto" className="route-select" value={to} onChange={(e) => changeTo(e.target.value)}>
+                {CITIES.filter((c) => c !== from).map((c) => <option key={c}>{c}</option>)}
               </select>
             </div>
           </div>
         </div>
 
-        <DateField label="يوم الرحلة" value={date} min={todayIso()} onChange={(d) => { setDate(d); setErr(''); }} />
-        <TimeField label="وقت الحركة" value={time} onChange={(t) => { setTime(t); setErr(''); }} />
+        <GaragePick label={`كراج الانطلاق في ${from}`} city={from} value={fromGarage} onChange={(id) => { setFromGarage(id); setErr(''); }} />
 
+        <h3 className="h3" style={{ marginTop: 4 }}>{round ? 'الذهاب' : 'موعد الرحلة'}</h3>
+        <DateField label="يوم الحركة" value={date} min={todayIso()} onChange={(d) => { setDate(d); if (backDate < d) setBackDate(addDays(d, 1)); setErr(''); }} />
+        <TimeField label="وقت الحركة" value={time} onChange={(t) => { setTime(t); setErr(''); }} />
         <div className="card row gap12" style={{ borderStyle: 'dashed' }}>
           <span className="df-ic"><Icon name="pin" size={20} /></span>
           <div className="grow">
             <div className="tiny muted">الوصول المتوقع إلى {to}</div>
-            <div className="bold"><span className="num" style={{ fontSize: 18 }}><Time v={arrive} /></span> {nextDay ? '· اليوم الثاني' : ''}</div>
+            <div className="bold"><span className="num" style={{ fontSize: 18 }}><Time v={arrive} /></span> {crosses(date, time) ? '· اليوم الثاني' : ''}</div>
           </div>
-          <span className="pill info">{info.dur}</span>
+          <span className="pill info">{durLabel(hours)}</span>
         </div>
+
+        {round ? (
+          <>
+            <h3 className="h3" style={{ marginTop: 4 }}>الإياب ({to} ← {from})</h3>
+            <GaragePick label={`كراج الانطلاق في ${to}`} city={to} value={toGarage} onChange={(id) => { setToGarage(id); setErr(''); }} />
+            <DateField label="يوم الرجعة" value={backDate} min={date} onChange={(d) => { setBackDate(d); setErr(''); }} />
+            <TimeField label="وقت الرجعة" value={backTime} onChange={(t) => { setBackTime(t); setErr(''); }} />
+            <div className="card row gap12" style={{ borderStyle: 'dashed' }}>
+              <span className="df-ic"><Icon name="pin" size={20} /></span>
+              <div className="grow">
+                <div className="tiny muted">الوصول المتوقع إلى {from}</div>
+                <div className="bold"><span className="num" style={{ fontSize: 18 }}><Time v={backArrive} /></span> {crosses(backDate, backTime) ? '· اليوم الثاني' : ''}</div>
+              </div>
+              <span className="pill info">{durLabel(hours)}</span>
+            </div>
+          </>
+        ) : null}
 
         <div className="field">
           <label htmlFor="dprice">سعر المقعد (د.ع)</label>
@@ -515,7 +611,7 @@ export function DriverAddTrip() {
         {err ? <div className="card" style={{ background: 'var(--alert-bg)', border: 0, color: 'var(--alert)', fontWeight: 600, fontSize: 14 }}>{err}</div> : null}
       </div>
       <div className="bottombar">
-        <button className="btn" onClick={save}>انشر الرحلة</button>
+        <button className="btn" onClick={save}>{round ? 'انشر الذهاب والإياب' : 'انشر الرحلة'}</button>
       </div>
     </div>
   );

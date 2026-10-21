@@ -31,8 +31,9 @@ export function Splash() {
         <rect width="100%" height="100%" fill="url(#bdVig)" />
       </svg>
       <div className="glow" aria-hidden="true" />
-      <div className="stack" style={{ alignItems: 'center', position: 'relative' }}>
-        <Logo className="logo" size={140} />
+      {/* The logo sits exactly in the middle, where the phone's launch screen draws it, so the two join up. */}
+      <Logo className="logo" size={140} />
+      <div className="splash-text">
         <div className="word">بدربي</div>
         <div className="tag">مقعدك محجوز... بدربك</div>
         <div className="road" role="progressbar" aria-label="جاري التحميل">

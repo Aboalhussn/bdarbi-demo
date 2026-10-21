@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launch screen for Android 11 and older: navy with the logo in the centre (same spot as the loading screen). -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/colorPrimary" />
+    <item android:drawable="@drawable/splash_logo" android:gravity="center" android:width="240dp" android:height="240dp" />
+</layer-list>

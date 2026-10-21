@@ -28,6 +28,7 @@ export interface DriverTripDraft {
   seats: number;
   price: number;
   arrive: string;
+  garageId?: string;
 }
 
 export interface SeatRequest {

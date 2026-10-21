@@ -147,13 +147,15 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .hero .chip.on { background: var(--white); color: var(--navy); }
 
 /* ---------- splash ---------- */
-.splash { align-items: center; justify-content: center; overflow: hidden; }
-.splash .stars { position: absolute; inset: 0; }
+.splash { align-items: center; justify-content: center; overflow: hidden; animation: none; }
+.splash .logo { position: absolute; left: 50%; top: 50%; margin: -70px 0 0 -70px; }
+.splash .splash-text { position: absolute; top: calc(50% + 74px); left: 0; right: 0; display: flex; flex-direction: column; align-items: center; }
+.splash .stars { position: absolute; inset: 0; animation: fade .8s ease-out both; }
+.splash .glow { animation: fade .8s ease-out both; }
 .splash .glow { position: absolute; top: 28%; left: 50%; width: 360px; height: 360px; margin-left: -180px; border-radius: 50%; background: radial-gradient(circle, rgba(138,132,179,.30) 0%, rgba(138,132,179,.10) 40%, rgba(11,5,88,0) 70%); }
-.splash .logo { animation: pop .85s cubic-bezier(.2,.9,.3,1.15) .1s both; }
 .splash .word { font-family: var(--display); font-weight: 800; font-size: 64px; line-height: 1.55; margin-top: -4px; animation: rise .6s ease-out .55s both; }
 .splash .tag { font-family: var(--display); font-weight: 700; font-size: 19px; line-height: 1.6; color: var(--gold); margin-top: 6px; animation: rise .6s ease-out .75s both; }
-.splash .road { position: relative; width: 176px; height: 12px; margin-top: 56px; direction: ltr; animation: rise .4s ease-out .2s both; }
+.splash .road { position: relative; width: 176px; height: 12px; margin-top: 40px; direction: ltr; animation: rise .4s ease-out .2s both; }
 .splash .road .line { position: absolute; left: 6px; right: 6px; top: 5px; height: 2px; opacity: .55; background-image: repeating-linear-gradient(90deg, var(--mist) 0 14px, transparent 14px 24px); }
 .splash .road .start { position: absolute; left: 0; top: 2px; width: 8px; height: 8px; border-radius: 50%; border: 2px solid var(--mist); background: var(--navy); }
 .splash .road .car { position: absolute; top: 0; right: 0; width: 12px; height: 12px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 0 4px rgba(245,184,61,.18); animation: drive 2.7s cubic-bezier(.45,0,.55,1) .25s both; }
@@ -301,8 +303,12 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .ampm { display: flex; flex-direction: column; gap: 6px; }
 .ampm button { width: 52px; height: 33px; border-radius: 10px; background: var(--surface); font-weight: 800; font-size: 15px; color: var(--slate); }
 .ampm button.on { background: var(--gold); color: #2A1A00; }
-.dial { position: relative; width: 264px; height: 264px; margin: 12px auto 16px; border-radius: 50%; background: var(--surface); direction: ltr; }
+.dial { position: relative; width: 264px; height: 264px; margin: 12px auto 16px; border-radius: 50%; background: var(--surface); direction: ltr; touch-action: none; cursor: pointer; user-select: none; }
+.dial-knob { position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; margin: -20px 0 0 -20px; border-radius: 50%; background: var(--navy); box-shadow: 0 4px 12px rgba(11,5,88,.3); }
 .dial-center { position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: var(--navy); }
-.dial-hand { position: absolute; left: 50%; top: 50%; height: 2px; margin-top: -1px; background: var(--navy); transform-origin: 0 50%; transition: transform .2s; }
-.dial-num { position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; margin: -20px 0 0 -20px; border-radius: 50%; font-weight: 700; font-size: 16px; color: var(--ink); display: flex; align-items: center; justify-content: center; transition: transform .2s; }
-.dial-num.on { background: var(--navy); color: #fff; box-shadow: 0 4px 12px rgba(11,5,88,.3); }
+.dial-hand { position: absolute; left: 50%; top: 50%; height: 2px; margin-top: -1px; background: var(--navy); transform-origin: 0 50%; }
+.dial-num { position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; margin: -20px 0 0 -20px; border-radius: 50%; font-weight: 700; font-size: 16px; color: var(--ink); display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.dial-num.on { color: #fff; }
+
+.seat.taken, .seat:disabled { pointer-events: none; }
+.seat-static { display: inline-flex; align-items: center; justify-content: center; }

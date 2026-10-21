@@ -277,7 +277,23 @@ export function Wallet() {
 
       <Sheet open={adding} onClose={() => setAdding(false)} label="إضافة بطاقة">
         <div className="stack gap6">
-          <h2 className="h3" style={{ marginBottom: 6 }}>{card ? 'بدّل البطاقة' : 'ضيف بطاقة'}</h2>
+          <div className="row" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
+            <h2 className="h3">{card ? 'بدّل البطاقة' : 'ضيف بطاقة'}</h2>
+            <button
+              className="pill gold"
+              style={{ height: 34, padding: '0 14px' }}
+              onClick={() => {
+                const y = (new Date().getFullYear() + 3) % 100;
+                setNum('4111 1111 1111 1111');
+                setHolder('ALI HASSAN');
+                setExp(`12/${String(y).padStart(2, '0')}`);
+                setCvv('123');
+                setErrs({});
+              }}
+            >
+              <Icon name="card" size={16} />&nbsp;بطاقة تجريبية
+            </button>
+          </div>
           <CardVisual first4={digits.slice(0, 4).padEnd(4, '•')} holder={holder.toUpperCase()} expiry={exp} brand={cardBrand(digits)} />
           <div className="field" style={{ marginTop: 12 }}>
             <label htmlFor="cnum">رقم البطاقة</label>
