@@ -183,10 +183,16 @@ export function Trips() {
   const [day, setDay] = useState(String(route.params?.date ?? days[0].iso));
   const garage = garageById(garageId);
   const [mode, setMode] = useState<'trip' | 'pkg'>(route.params?.pkg ? 'pkg' : 'trip');
-  const list = TRIPS.filter((t) => t.to === dest).sort((a, b) => a.time.localeCompare(b.time));
   const isToday = day === todayIso();
   const now = new Date();
   const nowMin = now.getHours() * 60 + now.getMinutes();
+  // Only trips you can still book on the chosen day, best rated first.
+  const list = TRIPS.filter((t) => {
+    if (t.to !== dest) return false;
+    const [h, m] = t.time.split(':').map(Number);
+    if (isToday && h * 60 + m < nowMin - 10) return false;
+    return seatsLeft(t, myCount(bookings, t.id, day)) > 0;
+  }).sort((a, b) => Number(b.rating) - Number(a.rating) || a.time.localeCompare(b.time));
 
   return (
     <div className="screen gray">
@@ -215,7 +221,7 @@ export function Trips() {
         </div>
         <div className="row gap8 pad" style={{ marginTop: 10 }}>
           {days.map((d) => (
-            <button key={d.iso} onClick={() => setDay(d.iso)} aria-pressed={d.iso === day} style={{ flex: 1, height: 54, borderRadius: 14, background: d.iso === day ? '#fff' : 'rgba(255,255,255,.12)', color: d.iso === day ? 'var(--navy)' : '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', lineHeight: 1.25 }}>
+            <button key={d.iso} onClick={() => setDay(d.iso)} aria-pressed={d.iso === day} className={`chip day-chip ${d.iso === day ? 'on' : ''}`}>
               <span style={{ fontSize: 11, fontWeight: 600 }}>{d.label}</span>
               <span className="num" style={{ fontSize: 15, fontWeight: 700 }}>{d.num}</span>
             </button>
@@ -227,9 +233,12 @@ export function Trips() {
         {mode === 'pkg' ? <PackageList /> : <>
         <div className="pad row" style={{ justifyContent: 'space-between', alignItems: 'baseline', marginTop: 16 }}>
           <h2 className="h3">بغداد ← {dest}</h2>
-          <span className="small muted">{list.length} رحلات · {list[0]?.duration}</span>
+          <span className="small muted">{list.length ? `${list.length} رحلات · ${list[0].duration}` : 'ما اكو رحلات'}</span>
         </div>
         <div className="pad stack gap10" style={{ marginTop: 10 }}>
+          {!list.length ? (
+            <div className="card center muted small" style={{ padding: 22 }}>ما بقت رحلات متوفرة لهذا اليوم. جرّب يوم ثاني.</div>
+          ) : null}
           {list.map((t) => {
             const [h, m] = t.time.split(':').map(Number);
             const gone = isToday && h * 60 + m < nowMin - 10;

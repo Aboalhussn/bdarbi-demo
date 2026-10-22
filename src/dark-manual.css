@@ -49,3 +49,13 @@ html.dark .chat-fab { box-shadow: 0 10px 26px rgba(0,0,0,.5); }
 /* Leaflet controls and tooltips */
 html.dark .leaflet-tooltip { background: #17142B; color: #EEEDF7; border-color: #2C2850; }
 html.dark .leaflet-tooltip-top::before { border-top-color: #17142B; }
+
+/* Toasts: violet with white text */
+html.dark .toast { background: #7B6CF6; color: #FFFFFF; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+
+/* Ticket: the light button reads white on dark */
+html.dark .btn.light.tk-btn { color: #FFFFFF; }
+
+/* Rewards: amounts in gold on a soft gold tile */
+html.dark .goal-reward { background: rgba(245,184,61,.12); border: 1px solid rgba(245,184,61,.32); color: #F5B83D; }
+html.dark .goal-reward small { color: rgba(245,184,61,.8); }
