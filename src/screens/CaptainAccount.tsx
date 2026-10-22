@@ -64,7 +64,6 @@ export function CaptainWallet() {
         {card ? (
           <>
             <CardVisual {...card} balance={e.balance} />
-            <button className="btn" onClick={() => { setOpen(true); setAmount(String(Math.max(0, e.balance))); setErr(''); }}><Icon name="arrowUp" size={20} /> اسحب الرصيد لبطاقتك</button>
             <div className="row gap10">
               <button className="btn soft sm grow" onClick={() => setAdding(true)}><Icon name="edit" size={18} /> بدّل البطاقة</button>
               <button className="btn soft sm grow" style={{ color: 'var(--alert)' }} onClick={() => setRemove(true)}><Icon name="x" size={18} /> احذف</button>
@@ -102,6 +101,12 @@ export function CaptainWallet() {
           ))}
         </div>
       </div>
+
+      {card ? (
+        <div className="bottombar">
+          <button className="btn" onClick={() => { setOpen(true); setAmount(String(Math.max(0, e.balance))); setErr(''); }}><Icon name="arrowUp" size={20} /> اسحب الرصيد</button>
+        </div>
+      ) : null}
 
       <CardSheet open={adding} onClose={() => setAdding(false)} replacing={!!card} note="هذي البطاقة تنسحب عليها أرباحك." onSave={(c) => { set({ captainCard: c }); setAdding(false); showToast('انضافت البطاقة ✓'); }} />
 
