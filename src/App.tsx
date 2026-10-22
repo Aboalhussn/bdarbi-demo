@@ -16,7 +16,7 @@ import { DriverAddTrip, DriverHome, DriverRequests, DriverScan, DriverScanResult
 import { CaptainVehicle, CaptainWallet, DriverGoals, DriverProfile } from './screens/CaptainAccount';
 import { Support } from './screens/Support';
 import { Pay } from './screens/Pay';
-import { AgencyAddTrip, AgencyFleet, AgencyHome, AgencyProfile } from './screens/Agency';
+import { AgencyAddVehicle, AgencyDrivers, AgencyFleet, AgencyHome, AgencyInfo, AgencyProfile, AgencyTripDetail, AgencyTrips } from './screens/Agency';
 
 const SCREENS: Record<string, ComponentType> = {
   splash: Splash,
@@ -46,7 +46,11 @@ const SCREENS: Record<string, ComponentType> = {
   support: Support,
   pay: Pay,
   agencyHome: AgencyHome,
-  agencyAddTrip: AgencyAddTrip,
+  agencyTrips: AgencyTrips,
+  agencyTrip: AgencyTripDetail,
+  agencyAddVehicle: AgencyAddVehicle,
+  agencyDrivers: AgencyDrivers,
+  agencyInfo: AgencyInfo,
   agencyFleet: AgencyFleet,
   agencyProfile: AgencyProfile,
   captainWallet: CaptainWallet,

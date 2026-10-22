@@ -39,14 +39,17 @@ const DRIVER_TABS = [
 ];
 
 const AGENCY_TABS = [
-  { key: 'agencyHome', icon: 'bus', label: 'الرحلات' },
-  { key: 'agencyFleet', icon: 'users', label: 'الأسطول' },
+  { key: 'agencyHome', icon: 'home', label: 'الرئيسية' },
+  { key: 'agencyTrips', icon: 'bus', label: 'الرحلات' },
+  { key: 'agencyAdd', icon: 'plus', label: 'أضف رحلة' },
+  { key: 'agencyFleet', icon: 'car', label: 'الأسطول' },
   { key: 'agencyProfile', icon: 'user', label: 'حسابي' },
 ];
 
 export function TabBar({ active, driver = false, agency = false }: { active: string; driver?: boolean; agency?: boolean }) {
-  const { reset, go, requests } = useStore();
-  const tabs = agency ? AGENCY_TABS : driver ? DRIVER_TABS : PASSENGER_TABS;
+  const { reset, go, requests, agencyDriverId } = useStore();
+  // An office driver has no challenges of his own: the office pays him.
+  const tabs = agency ? AGENCY_TABS : driver ? (agencyDriverId ? DRIVER_TABS.filter((t) => t.key !== 'driverGoals') : DRIVER_TABS) : PASSENGER_TABS;
   const home = agency ? 'agencyHome' : driver ? 'driverHome' : 'home';
   const newReq = requests.filter((r) => r.status === 'new').length;
   return (
@@ -55,10 +58,11 @@ export function TabBar({ active, driver = false, agency = false }: { active: str
         {tabs.map((t) => (
           <button
             key={t.key}
-            className={active === t.key ? 'on' : ''}
+            className={t.key === 'agencyAdd' ? 'plus-tab' : active === t.key ? 'on' : ''}
             aria-label={t.label}
             aria-current={active === t.key ? 'page' : undefined}
             onClick={() => {
+              if (t.key === 'agencyAdd') return go('driverAddTrip', { agency: true });
               if (t.key === active) return;
               if (t.key === home) reset(home);
               else if (t.key === 'driverScan') go(t.key);
@@ -68,8 +72,8 @@ export function TabBar({ active, driver = false, agency = false }: { active: str
               }
             }}
           >
-            <Icon name={t.icon} size={22} />
-            {driver && t.key === 'driverTrip' && newReq > 0 ? <span className="badge">{newReq}</span> : null}
+            <Icon name={t.icon} size={t.key === 'agencyAdd' ? 26 : 22} stroke={t.key === 'agencyAdd' ? 2.6 : undefined} />
+            {driver && !agencyDriverId && t.key === 'driverTrip' && newReq > 0 ? <span className="badge">{newReq}</span> : null}
           </button>
         ))}
       </nav>

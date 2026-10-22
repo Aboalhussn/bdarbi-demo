@@ -208,6 +208,9 @@ export function Login() {
           <button className="btn" onClick={submit}>تسجيل الدخول</button>
           <div className="small muted center" style={{ marginTop: 6 }}>نسخة تجريبية: أي رقم صحيح وأي كلمة سر تشتغل</div>
           {driver && !agency ? (
+            <div className="tiny muted center" style={{ lineHeight: 1.8 }}>سائق تابع لمكتب سفر؟ ادخل بالرقم اللي سجّله المكتب (جرّب <span className="num" dir="ltr">770 111 0001</span>)</div>
+          ) : null}
+          {driver && !agency ? (
             <button className="btn ghost" style={{ marginTop: 14 }} onClick={() => go('captainRegister')}>
               <Icon name="user" size={20} /> كابتن جديد؟ سجّل هنا
             </button>
@@ -301,7 +304,7 @@ export function Register() {
 }
 
 export function Otp() {
-  const { route, back, reset, set, captain } = useStore();
+  const { route, back, reset, set, captain, agencyDrivers } = useStore();
   const phone = String(route.params?.phone ?? '');
   const driver = route.params?.driver === true;
   const agency = route.params?.agency === true;
@@ -330,11 +333,13 @@ export function Otp() {
         reset('agencyHome');
         return;
       }
-      set({ role: driver ? 'driver' : 'passenger', ...(driver ? {} : { phone }), ...(name ? { name } : {}) });
+      // A driver whose account was made by a travel office signs in with the number the office gave.
+      const office = driver ? agencyDrivers.find((d) => d.phone === phone.replace(/\s/g, '')) : undefined;
+      set({ role: driver ? 'driver' : 'passenger', agencyDriverId: office?.id ?? null, ...(driver ? {} : { phone }), ...(name ? { name } : {}) });
       reset(driver ? 'driverHome' : 'home');
     }, 600);
     return () => window.clearTimeout(t);
-  }, [code, driver, agency, name, phone, reset, set]);
+  }, [code, driver, agency, name, phone, reset, set, agencyDrivers]);
 
   const press = (d: string) => {
     if (checking) return;

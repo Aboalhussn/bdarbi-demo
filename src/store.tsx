@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { seedAgencyTrips, span, SEED_DRIVERS, type AgencyDriver, type AgencyTrip } from './agency';
+import { agencyManifest, seedAgencyTrips, span, SEED_DRIVERS, SEED_VEHICLES, AGENCY_NAME, type AgencyDriver, type AgencyTrip, type AgencyVehicle } from './agency';
 import { DEMO_PASSENGERS, DRIVER_TRIP_ID, TRIPS, fmt12, todayIso, tripById, type VehicleKind } from './data';
 
 export type Role = 'passenger' | 'driver' | 'agency';
@@ -123,6 +123,9 @@ interface Persisted {
   support: { passenger: ChatMsg[]; captain: ChatMsg[]; agency: ChatMsg[] };
   agencyTrips: AgencyTrip[];
   agencyDrivers: AgencyDriver[];
+  agencyVehicles: AgencyVehicle[];
+  agencyInfo: { name: string; phone: string; email: string; address: string; logo: string };
+  agencyDriverId: string | null; // set when the signed-in captain is an office driver
   captainNotifs: Notif[];
   captainCard: SavedCard | null; // where the captain's earnings are paid out
   goalsClaimed: string[]; // ids of captain challenges whose reward was collected
@@ -201,6 +204,9 @@ const initial: Persisted = {
   support: { passenger: [], captain: [], agency: [] },
   agencyTrips: seedAgencyTrips(),
   agencyDrivers: SEED_DRIVERS,
+  agencyVehicles: SEED_VEHICLES,
+  agencyInfo: { name: AGENCY_NAME, phone: '770 555 1234', email: 'info@dijla-travel.iq', address: 'بغداد، الكرادة داخل', logo: '' },
+  agencyDriverId: null,
   captainNotifs: [
     { id: 'cn1', at: 0, icon: 'trophy', title: 'تحدي جديد 🏆', body: 'خلّص 3 رحلات خلال يومين واربح 25,000 د.ع تنضاف لمحفظتك.', read: false, tone: 'ok', link: { name: 'driverGoals' } },
     { id: 'cn0', at: 0, icon: 'star', title: 'تقييمك ★ 4.9', body: 'تقييمك عالي، فرحلاتك تطلع بأول نتائج البحث للمسافرين. كمّل هيج!', read: true, tone: 'info' },
@@ -305,6 +311,7 @@ interface Store extends Persisted {
   notify: (n: Omit<Notif, 'id' | 'at' | 'read'>, to?: 'passenger' | 'captain') => void;
   markAllRead: (as?: 'passenger' | 'captain') => void;
   trip: TripState; // today's state of the captain's trip
+  myAgencyTrip: () => AgencyTrip | undefined; // the office driver's current trip
   setTrip: (patch: Partial<TripState>) => void;
   rate: (code: string, r: Rating) => void;
 }
@@ -345,11 +352,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const store = useMemo<Store>(() => {
     const boardedMap = { ...DEFAULT_BOARDED, ...data.boarded };
+    // An office driver works the trip the office gave him: today's, not yet finished.
+    const myAgencyTrip = () => {
+      if (!data.agencyDriverId) return undefined;
+      const mine = data.agencyTrips
+        .filter((t) => t.driverId === data.agencyDriverId && t.status !== 'cancelled' && t.status !== 'arrived' && t.date >= todayIso())
+        .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+      return mine[0];
+    };
     const manifest = () => {
+      if (data.agencyDriverId) {
+        const t = myAgencyTrip();
+        return t ? agencyManifest(t) : [];
+      }
       const mine = data.bookings.filter((b) => b.tripId === DRIVER_TRIP_ID && b.date === todayIso());
       return [...seededManifest(), ...mine];
     };
-    const allBookings = () => [...seededManifest(), ...data.bookings];
+    const allBookings = () => [...seededManifest(), ...data.agencyTrips.flatMap(agencyManifest), ...data.bookings];
+    const currentTripId = () => (data.agencyDriverId ? myAgencyTrip()?.id ?? '' : DRIVER_TRIP_ID);
     const boardedAt = (b: Booking) => b.boardedAt ?? boardedMap[b.code];
 
     const verify = (input: string): ScanOutcome => {
@@ -365,8 +385,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!found && !parsed) return { kind: 'invalid' };
       const tripId = found?.tripId ?? parsed!.tripId;
       const date = found?.date ?? parsed!.date;
-      if (tripId !== DRIVER_TRIP_ID) {
-        const t = tripById(tripId);
+      if (tripId !== currentTripId()) {
+        const t = tripById(tripId) ?? data.agencyTrips.find((x) => x.id === tripId);
         return { kind: 'other', tripLabel: t ? `${t.from} ← ${t.to} · ${fmt12(t.time)}` : 'رحلة ثانية' };
       }
       if (date !== todayIso()) return { kind: 'notToday', date };
@@ -401,6 +421,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     return {
       ...data,
+      myAgencyTrip,
       route: stack[stack.length - 1],
       stackDepth: stack.length,
       go,

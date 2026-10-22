@@ -4,7 +4,7 @@ import { Icon, Logo } from '../icons';
 import { tripOf, useStore, type SavedCard } from '../store';
 import { Sheet, TopBar } from '../ui';
 import { PhoneField, phoneError } from './Welcome';
-import { captainInfo } from '../captain';
+import { useCaptainInfo } from '../captain';
 
 /** Round profile picture: the user's photo, or the mascot when there is none. */
 export function Avatar({ size = 60, src }: { size?: number; src?: string }) {
@@ -143,7 +143,7 @@ export function PersonalInfo() {
   // The same screen edits the captain's own details when opened from the captain app.
   const asCaptain = store.route.params?.captain === true;
   const cp = store.captainProfile;
-  const me = captainInfo(store.captain, cp);
+  const me = useCaptainInfo();
   const start = asCaptain
     ? { avatar: cp.avatar, name: me.name, phone: me.phone, email: cp.email, gender: cp.gender, password: cp.password }
     : { avatar: store.avatar, name: store.name === 'ضيف' ? '' : store.name, phone: store.phone, email: store.email, gender: store.gender, password: store.password };

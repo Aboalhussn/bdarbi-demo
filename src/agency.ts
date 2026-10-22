@@ -1,13 +1,19 @@
+import { DEMO_PASSENGERS, type VehicleKind } from './data';
+import type { Booking } from './store';
+
 export const AGENCY_NAME = 'مكتب دجلة للسفر والسياحة';
 
 export interface AgencyVehicle {
   id: string;
-  label: string; // e.g. باص 40
-  kind: 'باص' | 'كوستر' | 'GMC';
+  kind: VehicleKind;
   model: string;
-  plate: string;
+  plate: string; // "بغداد 48213 أ"
   seats: number;
+  color: string;
+  year: string;
 }
+
+export const vLabel = (v: AgencyVehicle) => `${v.kind} ${v.seats}`;
 
 export interface AgencyDriver {
   id: string;
@@ -16,6 +22,7 @@ export interface AgencyDriver {
   rating: string;
   vehicleId: string;
   status: 'active' | 'invited';
+  password?: string; // set by the office; the driver signs in with phone + this
 }
 
 export interface AgencyTrip {
@@ -30,15 +37,17 @@ export interface AgencyTrip {
   booked: number;
   price: number;
   status: 'scheduled' | 'started' | 'arrived' | 'cancelled';
+  garageId?: string;
+  endGarageId?: string;
 }
 
-export const AGENCY_VEHICLES: AgencyVehicle[] = [
-  { id: 'v1', label: 'باص 40', kind: 'باص', model: 'مرسيدس ترافيغو', plate: 'بغداد 48213 أ', seats: 40 },
-  { id: 'v2', label: 'كوستر 14', kind: 'كوستر', model: 'تويوتا كوستر', plate: 'بغداد 33790 ب', seats: 14 },
-  { id: 'v3', label: 'GMC 7', kind: 'GMC', model: 'جي إم سي يوكن', plate: 'بغداد 61025 ج', seats: 7 },
-  { id: 'v4', label: 'كوستر 14', kind: 'كوستر', model: 'تويوتا كوستر', plate: 'بغداد 27401 د', seats: 14 },
-  { id: 'v5', label: 'باص 40', kind: 'باص', model: 'كينغ لونغ', plate: 'بغداد 55118 هـ', seats: 40 },
-  { id: 'v6', label: 'GMC 7', kind: 'GMC', model: 'جي إم سي سييرا', plate: 'بغداد 70342 و', seats: 7 },
+export const SEED_VEHICLES: AgencyVehicle[] = [
+  { id: 'v1', kind: 'باص', model: 'مرسيدس ترافيغو', plate: 'بغداد 48213 أ', seats: 40, color: 'أبيض', year: '2021' },
+  { id: 'v2', kind: 'كوستر', model: 'تويوتا كوستر', plate: 'بغداد 33790 ب', seats: 14, color: 'فضي', year: '2019' },
+  { id: 'v3', kind: 'GMC', model: 'جي إم سي يوكن', plate: 'بغداد 61025 ج', seats: 7, color: 'أسود', year: '2022' },
+  { id: 'v4', kind: 'كوستر', model: 'تويوتا كوستر', plate: 'بغداد 27401 د', seats: 14, color: 'أبيض', year: '2018' },
+  { id: 'v5', kind: 'باص', model: 'كينغ لونغ', plate: 'بغداد 55118 هـ', seats: 40, color: 'أبيض', year: '2020' },
+  { id: 'v6', kind: 'GMC', model: 'جي إم سي سييرا', plate: 'بغداد 70342 و', seats: 7, color: 'فضي', year: '2023' },
 ];
 
 export const SEED_DRIVERS: AgencyDriver[] = [
@@ -68,7 +77,47 @@ export function seedAgencyTrips(): AgencyTrip[] {
   ];
 }
 
-export const vehicleById = (id: string) => AGENCY_VEHICLES.find((v) => v.id === id) ?? AGENCY_VEHICLES[0];
+export const findVehicle = (list: AgencyVehicle[], id: string) => list.find((v) => v.id === id);
+
+const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+function codeFor(seed: string, k: number) {
+  let h = 2166136261;
+  for (const ch of `${seed}#${k}`) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+  let out = '';
+  for (let i = 0; i < 6; i++) {
+    out += CODE_CHARS[h % CODE_CHARS.length];
+    h = Math.imul(h ^ (h >>> 13), 2246822519) >>> 0;
+  }
+  return out;
+}
+
+/** The passengers booked on an agency trip (demo): seats 1..booked in small groups. */
+export function agencyManifest(t: AgencyTrip): Booking[] {
+  const out: Booking[] = [];
+  let seat = 1;
+  let k = 0;
+  const offset = t.id.split('').reduce((n, c) => n + c.charCodeAt(0), 0);
+  while (seat <= t.booked) {
+    const size = Math.min(k % 4 === 0 ? 2 : 1, t.booked - seat + 1);
+    const seats = Array.from({ length: size }, (_, i) => seat + i);
+    out.push({
+      code: codeFor(t.id, k),
+      tripId: t.id,
+      date: t.date,
+      seats,
+      name: DEMO_PASSENGERS[(offset + k) % DEMO_PASSENGERS.length],
+      phone: `77${String(10000000 + ((offset * 7919 + k * 104729) % 89999999)).slice(0, 8)}`,
+      total: t.price * size,
+      discount: 0,
+      pay: k % 3 === 0 ? 'نقداً' : k % 3 === 1 ? 'زين كاش' : 'بطاقة',
+      status: t.status === 'cancelled' ? 'cancelled' : 'confirmed',
+      createdAt: 0,
+    });
+    seat += size;
+    k++;
+  }
+  return out;
+}
 
 /** Minutes since the start of the trip's day, so two trips can be compared. */
 export function span(date: string, time: string, hours: number) {

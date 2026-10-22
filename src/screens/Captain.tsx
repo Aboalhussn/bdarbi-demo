@@ -540,3 +540,105 @@ export function CaptainPending() {
     </div>
   );
 }
+
+export interface VehicleDraft {
+  kind: VehicleKind;
+  seats: number;
+  model: string;
+  year: string;
+  color: string;
+  province: string;
+  letter: string;
+  number: string;
+}
+
+export const emptyVehicle = (): VehicleDraft => ({ kind: 'كوستر', seats: 14, model: '', year: '', color: 'أبيض', province: 'بغداد', letter: 'أ', number: '' });
+
+/** What's missing from a vehicle draft, or '' when it is complete. */
+export function vehicleError(v: VehicleDraft) {
+  if (v.model.trim().length < 2) return 'اكتب اسم السيارة والموديل';
+  if (!(v.year.length === 4 && Number(v.year) >= YEAR_MIN && Number(v.year) <= YEAR_MAX)) return 'اكتب سنة الإصدار صح';
+  if (v.number.length < 3) return 'اكتب رقم اللوحة';
+  return '';
+}
+
+/** The "سجّل سيارتك" fields on their own, for the travel office's fleet. */
+export function VehicleFields({ value: v, onChange }: { value: VehicleDraft; onChange: (v: VehicleDraft) => void }) {
+  const [plateSheet, setPlateSheet] = useState<'' | 'province' | 'letter'>('');
+  const up = (patch: Partial<VehicleDraft>) => onChange({ ...v, ...patch });
+  const max = KINDS.find((k) => k.kind === v.kind)?.max ?? 50;
+  const yearDone = v.year.length === 4;
+  const yearOk = yearDone && Number(v.year) >= YEAR_MIN && Number(v.year) <= YEAR_MAX;
+  return (
+    <>
+      <section>
+        <div className="label" style={{ marginBottom: 8 }}>نوع المركبة</div>
+        <div className="vk-grid" role="radiogroup" aria-label="نوع المركبة">
+          {KINDS.map((k) => (
+            <button key={k.kind} role="radio" aria-checked={v.kind === k.kind} className={v.kind === k.kind ? 'on' : ''} onClick={() => up({ kind: k.kind, seats: k.seats })}>{k.kind}</button>
+          ))}
+        </div>
+      </section>
+      <div className="field">
+        <label htmlFor="vmodel">اسم السيارة والموديل</label>
+        <input id="vmodel" className="input" style={{ background: '#fff', height: 50, borderRadius: 14 }} value={v.model} placeholder="مثلاً: تويوتا كوستر" onChange={(e) => up({ model: e.target.value })} />
+      </div>
+      <div className="field">
+        <label htmlFor="vyear">سنة الإصدار</label>
+        <div className={`year-box ${yearDone ? (yearOk ? 'ok' : 'bad') : ''}`}>
+          <input id="vyear" inputMode="numeric" maxLength={4} dir="ltr" placeholder="2019" value={v.year} onChange={(e) => up({ year: e.target.value.replace(/[٠-٩]/g, (c) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(c))).replace(/\D/g, '').slice(0, 4) })} />
+          <span><Icon name={yearOk ? 'check' : yearDone ? 'info' : 'calendar'} size={20} stroke={yearOk ? 3 : 2} /></span>
+        </div>
+        <div className="tiny bold" style={{ color: !yearDone ? 'var(--slate)' : yearOk ? 'var(--success)' : '#B23A4C' }}>
+          {!v.year ? 'اكتب السنة بأربع أرقام، مثل 2019' : !yearDone ? 'كمّل السنة (4 أرقام)' : yearOk ? 'تمام' : `السنة لازم تكون بين ${YEAR_MIN} و ${YEAR_MAX}`}
+        </div>
+      </div>
+      <section>
+        <div className="label" style={{ marginBottom: 8 }}>اللون · <span className="muted" style={{ fontWeight: 600 }}>{v.color}</span></div>
+        <div className="row gap10" role="radiogroup" aria-label="لون السيارة">
+          {COLORS.map(([c, hex]) => (
+            <button key={c} role="radio" aria-checked={v.color === c} aria-label={c} className={`swatch ${v.color === c ? 'on' : ''}`} onClick={() => up({ color: c })}>
+              <span style={{ background: hex }} />
+            </button>
+          ))}
+        </div>
+      </section>
+      <section>
+        <div className="label" style={{ marginBottom: 8 }}>رقم اللوحة</div>
+        <div className="plate">
+          <button className="plate-prov" onClick={() => setPlateSheet('province')} aria-label={`محافظة اللوحة: ${v.province}`}>{v.province}<Icon name="arrowDown" size={14} /></button>
+          <button className="plate-letter" onClick={() => setPlateSheet('letter')} aria-label={`حرف اللوحة: ${v.letter}`}>{v.letter}<Icon name="arrowDown" size={12} /></button>
+          <input id="vnum" dir="ltr" inputMode="numeric" maxLength={6} placeholder="12345" aria-label="رقم اللوحة" value={v.number} onChange={(e) => up({ number: e.target.value.replace(/\D/g, '').slice(0, 6) })} />
+        </div>
+      </section>
+      <div className="seats-card">
+        <div className="grow">
+          <div className="bold">عدد مقاعد الركاب</div>
+          <div className="tiny muted">بدون مقعد السائق</div>
+        </div>
+        <button aria-label="أقل" onClick={() => up({ seats: Math.max(1, v.seats - 1) })}>−</button>
+        <b className="num">{v.seats}</b>
+        <button aria-label="أكثر" className="plus" onClick={() => up({ seats: Math.min(max, v.seats + 1) })}>+</button>
+      </div>
+      <Sheet open={plateSheet !== ''} onClose={() => setPlateSheet('')} label={plateSheet === 'province' ? 'محافظة اللوحة' : 'حرف اللوحة'}>
+        <h2 className="h3" style={{ marginBottom: 10 }}>{plateSheet === 'province' ? 'محافظة اللوحة' : 'حرف اللوحة'}</h2>
+        {plateSheet === 'province' ? (
+          <div className="city-grid">
+            {PROVINCES.map((p) => (
+              <button key={p} className={`city-opt ${p === v.province ? 'on' : ''}`} style={{ minHeight: 50 }} onClick={() => { up({ province: p }); setPlateSheet(''); }}>
+                <span className="grow bold" style={{ textAlign: 'right' }}>{p}</span>
+                {p === v.province ? <Icon name="check" size={16} stroke={3} /> : null}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="letter-grid">
+            {LETTERS.map((l) => (
+              <button key={l} className={l === v.letter ? 'on' : ''} onClick={() => { up({ letter: l }); setPlateSheet(''); }}>{l}</button>
+            ))}
+          </div>
+        )}
+      </Sheet>
+    </>
+  );
+}

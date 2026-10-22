@@ -4,7 +4,8 @@ import { CITIES, DRIVER_TRIP_ID, GARAGES, addHours, fmt12, garageById, longDate,
 import { CityPicker, DateField, GarageField, TimeField, addDays } from '../pickers';
 import { Icon } from '../icons';
 import { useStore, type Booking, type ScanOutcome } from '../store';
-import { captainInfo } from '../captain';
+import { captainInfo, useCaptainInfo } from '../captain';
+import { findVehicle } from '../agency';
 import { Sheet, TabBar, Time, TopBar } from '../ui';
 
 
@@ -32,7 +33,12 @@ export function captainRating(bookings: Booking[]) {
 }
 
 export function DriverHome() {
-  const { go, manifest, boardedAt, requests, driverTrips, trip: live, setTrip, notify, bookings, showToast, captain, captainProfile, captainNotifs, goalsClaimed } = useStore();
+  const { agencyDriverId } = useStore();
+  return agencyDriverId ? <OfficeDriverHome /> : <CaptainHome />;
+}
+
+function CaptainHome() {
+  const { go, manifest, boardedAt, requests, driverTrips, trip: live, setTrip, notify, bookings, showToast, captainNotifs, goalsClaimed } = useStore();
   const unread = captainNotifs.filter((n) => !n.read).length;
   const trip = tripById(DRIVER_TRIP_ID)!;
   const list = manifest().filter((b) => b.status === 'confirmed');
@@ -42,7 +48,7 @@ export function DriverHome() {
   const newReq = requests.filter((r) => r.status === 'new').length;
   const [sheet, setSheet] = useState<'' | 'delay' | 'cancel' | 'start'>('');
   const [reason, setReason] = useState('عطل بالمركبة');
-  const me = captainInfo(captain, captainProfile);
+  const me = useCaptainInfo();
   const name = me.name;
   const depTime = addMinutes(trip.time, live.delay);
   // The passenger on this phone hears about it only if they booked this trip.
@@ -214,9 +220,25 @@ export function DriverHome() {
 }
 
 export function DriverTrip() {
-  const { manifest, boardedAt, board, go, showToast, requests } = useStore();
+  const { manifest, boardedAt, board, go, showToast, requests, agencyDriverId, myAgencyTrip, agencyVehicles } = useStore();
   const newReq = requests.filter((r) => r.status === 'new').length;
-  const trip = tripById(DRIVER_TRIP_ID)!;
+  const office = agencyDriverId ? myAgencyTrip() : undefined;
+  const trip = agencyDriverId
+    ? office ? { from: office.from, to: office.to, time: office.time, capacity: findVehicle(agencyVehicles, office.vehicleId)?.seats ?? 14 } : null
+    : tripById(DRIVER_TRIP_ID)!;
+  if (!trip) {
+    return (
+      <div className="screen gray">
+        <div className="topbar"><div className="title" style={{ fontSize: 24, fontWeight: 800 }}>الركاب</div></div>
+        <div className="empty"><Icon name="users" size={40} /><b style={{ color: 'var(--ink)' }}>ما عندك رحلة هسه</b><span className="small">لما المكتب يحددلك رحلة، ركابها يطلعون هنا.</span></div>
+        <TabBar active="driverTrip" driver />
+      </div>
+    );
+  }
+  return <TripPassengers trip={trip} office={!!agencyDriverId} newReq={newReq} manifest={manifest} boardedAt={boardedAt} board={board} go={go} showToast={showToast} />;
+}
+
+function TripPassengers({ trip, office, newReq, manifest, boardedAt, board, go, showToast }: { trip: { from: string; to: string; time: string; capacity: number }; office: boolean; newReq: number; manifest: () => Booking[]; boardedAt: (b: Booking) => string | undefined; board: (code: string) => void; go: (n: string, p?: Record<string, unknown>) => void; showToast: (m: string) => void }) {
   const list = manifest();
   const bySeat = new Map<number, Booking>();
   list.filter((b) => b.status === 'confirmed').forEach((b) => b.seats.forEach((s) => bySeat.set(s, b)));
@@ -226,6 +248,7 @@ export function DriverTrip() {
   const boarded = confirmed.filter((b) => boardedAt(b)).reduce((n, b) => n + b.seats.length, 0);
 
   const seat = (n: number) => {
+    if (n > trip.capacity) return <span key={n} style={{ width: 46 }} />;
     const b = bySeat.get(n);
     const cls = b ? (boardedAt(b) ? 'boarded' : 'taken') : '';
     return (
@@ -236,7 +259,7 @@ export function DriverTrip() {
   };
 
   const rows = [];
-  for (let r = 0; r < trip.capacity / 4; r++) {
+  for (let r = 0; r < Math.ceil(trip.capacity / 4); r++) {
     const b = r * 4;
     rows.push(
       <div key={r} className="row gap8">
@@ -247,7 +270,7 @@ export function DriverTrip() {
 
   return (
     <div className="screen">
-      <TopBar title={`${trip.from} ← ${trip.to}`} sub={<>اليوم · <span className="num"><Time v={trip.time} /></span> · صعدوا <b className="num">{boarded}/{seats}</b></>} right={<button className="iconbtn req-btn" aria-label={`طلبات الحجز${newReq ? `، ${newReq} جديدة` : ''}`} onClick={() => go('driverRequests')}><Icon name="inbox" size={22} />{newReq ? <span className="badge num">{newReq}</span> : null}</button>} />
+      <TopBar title={`${trip.from} ← ${trip.to}`} sub={<>اليوم · <span className="num"><Time v={trip.time} /></span> · صعدوا <b className="num">{boarded}/{seats}</b></>} right={office ? undefined : <button className="iconbtn req-btn" aria-label={`طلبات الحجز${newReq ? `، ${newReq} جديدة` : ''}`} onClick={() => go('driverRequests')}><Icon name="inbox" size={22} />{newReq ? <span className="badge num">{newReq}</span> : null}</button>} />
       <div className="legend" style={{ padding: '0 20px 10px' }}>
         <span><i style={{ background: '#DCDAE6' }} />محجوز</span>
         <span><i style={{ background: 'var(--success-bg)', border: '1.5px solid #9BD1B1' }} />صعد</span>
@@ -573,7 +596,10 @@ function garagesIn(city: string) {
 }
 
 export function DriverAddTrip() {
-  const { driverTrips, set, back, showToast } = useStore();
+  const { driverTrips, set, back, showToast, route, agencyTrips, agencyVehicles, agencyDrivers } = useStore();
+  // A travel office uses the same wizard, picking which of its vehicles (and so which driver) runs the trip.
+  const office = route.params?.agency === true;
+  const [vid, setVid] = useState('');
   const [from, setFrom] = useState('بغداد');
   const [to, setTo] = useState('البصرة');
   const [fromGarage, setFromGarage] = useState('');
@@ -587,7 +613,10 @@ export function DriverAddTrip() {
   const [price, setPrice] = useState('25000');
   const [err, setErr] = useState('');
   const [step, setStep] = useState(1);
-  const v = captainInfo(useStore().captain).vehicle;
+  const own = captainInfo(useStore().captain).vehicle;
+  const ov = office ? findVehicle(agencyVehicles, vid) : undefined;
+  const v = ov ? { kind: ov.kind, model: ov.model, seats: ov.seats, plate: ov.plate, color: ov.color } : own;
+  const officeDriver = office ? agencyDrivers.find((d) => d.vehicleId === vid && d.status === 'active') : undefined;
   const hours = hoursBetween(from, to);
   const mins = Math.round(hours * 60);
   const arrive = addHours(time, hours);
@@ -614,12 +643,18 @@ export function DriverAddTrip() {
 
   // Everything this driver already drives: today's trip plus trips he added.
   const current = tripById(DRIVER_TRIP_ID)!;
-  const mine = [
-    { label: `${current.from} ← ${current.to}`, date: todayIso(), time: current.time, mins: Math.round(routeInfo(current.to).hours * 60) },
-    ...driverTrips.map((t) => ({ label: `${t.from} ← ${t.to}`, date: t.date, time: t.time, mins: Math.round(hoursBetween(t.from, t.to) * 60) })),
-  ];
+  const mine = office
+    ? agencyTrips
+        .filter((t) => t.status !== 'cancelled' && (t.vehicleId === vid || (officeDriver && t.driverId === officeDriver.id)))
+        .map((t) => ({ label: `${t.from} ← ${t.to}`, date: t.date, time: t.time, mins: Math.round(t.hours * 60) }))
+    : [
+        { label: `${current.from} ← ${current.to}`, date: todayIso(), time: current.time, mins: Math.round(routeInfo(current.to).hours * 60) },
+        ...driverTrips.map((t) => ({ label: `${t.from} ← ${t.to}`, date: t.date, time: t.time, mins: Math.round(hoursBetween(t.from, t.to) * 60) })),
+      ];
 
   const next = () => {
+    if (step === 1 && office && !vid) return setErr('اختار المركبة');
+    if (step === 1 && office && !officeDriver) return setErr('هذي المركبة ما إلها سائق. ضيف سائق إلها من حسابي ← السواق.');
     if (step === 1 && !fromGarage) return setErr(`اختار كراج الانطلاق في ${from}`);
     if (step === 1 && !endGarage) return setErr(`اختار نقطة الانتهاء في ${to}`);
     if (step === 1 && !toGarage) setToGarage(endGarage);
@@ -649,9 +684,16 @@ export function DriverAddTrip() {
         const s0 = toAbs(t.date, t.time);
         return leg.start < s0 + t.mins + 60 && s0 < leg.start + mins + 60;
       });
-      if (clash) return setErr(`${round ? (leg === legs[0] ? 'الذهاب: ' : 'الإياب: ') : ''}عندك رحلة بنفس الوقت — ${clash.label} · ${longDate(clash.date)} · ${fmt12(clash.time)}`);
+      if (clash) return setErr(`${round ? (leg === legs[0] ? 'الذهاب: ' : 'الإياب: ') : ''}${office ? 'المركبة أو سائقها عنده رحلة' : 'عندك رحلة'} بنفس الوقت — ${clash.label} · ${longDate(clash.date)} · ${fmt12(clash.time)}`);
     }
     const base = Date.now();
+    if (office && officeDriver) {
+      const leg = (id: string, a: string, b: string, d: string, t: string, g: string, e: string) => ({ id, from: a, to: b, date: d, time: t, hours, vehicleId: vid, driverId: officeDriver.id, booked: 0, price: p, status: 'scheduled' as const, garageId: g, endGarageId: e });
+      set({ agencyTrips: [...agencyTrips, leg('a' + base, from, to, date, time, fromGarage, endGarage), ...(round ? [leg('a' + (base + 1), to, from, backDate, backTime, toGarage, fromGarage)] : [])] });
+      showToast(`انضافت ${round ? 'الروحة والرجعة' : 'الرحلة'} ووصلت للسائق ${officeDriver.name.split(' ')[0]}`);
+      back();
+      return;
+    }
     const out = { id: 'd' + base, from, to, date, time, kind: v.kind, seats: v.seats, price: p, arrive, garageId: fromGarage, endGarageId: endGarage };
     const ret = { id: 'd' + (base + 1), from: to, to: from, date: backDate, time: backTime, kind: v.kind, seats: v.seats, price: p, arrive: backArrive, garageId: toGarage, endGarageId: fromGarage };
     set({ driverTrips: [...driverTrips, out, ...(round ? [ret] : [])] });
@@ -659,7 +701,7 @@ export function DriverAddTrip() {
     back();
   };
 
-  const STEPS = ['الطريق والكراج', 'نوع الرحلة والسعر', 'الموعد'];
+  const STEPS = [office ? 'المركبة والطريق' : 'الطريق والكراج', 'نوع الرحلة والسعر', 'الموعد'];
   const arriveCard = (city: string, at: string, d: string, t: string) => (
     <div className="card row gap12" style={{ borderStyle: 'dashed' }}>
       <span className="df-ic"><Icon name="pin" size={20} /></span>
@@ -685,6 +727,25 @@ export function DriverAddTrip() {
       <div className="scroll pad stack gap12" style={{ paddingTop: 14, paddingBottom: 20 }}>
         {step === 1 ? (
           <>
+            {office ? (
+              <>
+                <h3 className="h3">المركبة</h3>
+                <div className="veh-grid">
+                  {agencyVehicles.map((x) => {
+                    const d = agencyDrivers.find((y) => y.vehicleId === x.id && y.status === 'active');
+                    return (
+                      <button key={x.id} className={`veh ${vid === x.id ? 'on' : ''}`} onClick={() => { setVid(x.id); setErr(''); }}>
+                        <Icon name={x.kind === 'GMC' || x.kind === 'سيارة' ? 'car' : x.kind === 'كوستر' ? 'van' : 'bus'} size={22} />
+                        <b>{x.kind} {x.seats}</b>
+                        <span className="tiny">{d ? d.name.split(' ')[0] : 'بلا سائق'}</span>
+                        <span className="tiny num" style={{ opacity: 0.7 }}>{x.plate.split(' ').slice(1).join(' ')}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {officeDriver ? <div className="small muted">السائق: <b>{officeDriver.name}</b> — الرحلة تطلعله بتطبيق «كابتن بدربي».</div> : null}
+              </>
+            ) : (
             <div className="card row gap12" style={{ background: '#EEEDF8', border: 0 }}>
               <span className="df-ic" style={{ background: '#fff' }}><Icon name="bus" size={22} /></span>
               <div className="grow">
@@ -694,6 +755,7 @@ export function DriverAddTrip() {
               </div>
               <span className="pill ok">ثابتة</span>
             </div>
+            )}
             <h3 className="h3">منين وين؟</h3>
             <div className="route-box">
               <div className="route-row">
@@ -777,6 +839,105 @@ export function DriverAddTrip() {
           {step < 3 ? <>التالي <Icon name="forward" size={18} /></> : round ? 'انشر الروحة والرجعة' : 'انشر الرحلة'}
         </button>
       </div>
+    </div>
+  );
+}
+
+/** Home for a driver who works for a travel office: the office sets his trips, he runs them and scans tickets. */
+function OfficeDriverHome() {
+  const { go, manifest, boardedAt, myAgencyTrip, agencyTrips, agencyDriverId, agencyVehicles, set, showToast, captainNotifs } = useStore();
+  const me = useCaptainInfo();
+  const t = myAgencyTrip();
+  const unread = captainNotifs.filter((n) => !n.read).length;
+  const list = manifest().filter((b) => b.status === 'confirmed');
+  const seats = list.reduce((n, b) => n + b.seats.length, 0);
+  const boarded = list.filter((b) => boardedAt(b)).reduce((n, b) => n + b.seats.length, 0);
+  const cap = t ? findVehicle(agencyVehicles, t.vehicleId)?.seats ?? seats : 0;
+  const later = agencyTrips
+    .filter((x) => x.driverId === agencyDriverId && x.id !== t?.id && x.status === 'scheduled' && x.date >= todayIso())
+    .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+  const setStatus = (status: 'started' | 'arrived') => {
+    if (!t) return;
+    set({ agencyTrips: agencyTrips.map((x) => (x.id === t.id ? { ...x, status } : x)) });
+    showToast(status === 'started' ? 'انطلقت الرحلة — المكتب والمسافرين يشوفونك' : 'وصلت الرحلة ✓ وصل خبر للمكتب');
+  };
+
+  return (
+    <div className="screen gray">
+      <div className="scroll with-tabs">
+        <div className="hero" style={{ paddingTop: 'calc(20px + var(--safe-top))', paddingBottom: 22 }}>
+          <div className="pad row gap14">
+            <div style={{ width: 60, height: 60, borderRadius: '50%', background: 'var(--lavender)', overflow: 'hidden', flexShrink: 0, position: 'relative' }}>
+              {me.avatar ? <img src={me.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <img src="./img/driver.png" alt="" style={{ position: 'absolute', top: 2, left: 2, width: 58 }} />}
+            </div>
+            <div className="grow">
+              <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 21 }}>هلا {me.name.split(' ')[0]}!</div>
+              <div className="small" style={{ opacity: 0.8 }}>سائق لدى {me.agency}</div>
+            </div>
+            <button className="bell" aria-label={`الإشعارات${unread ? `، ${unread} جديدة` : ''}`} onClick={() => go('notifications', { as: 'captain' })}>
+              <Icon name="bell" size={22} />
+              {unread ? <span className="badge num">{unread}</span> : null}
+            </button>
+          </div>
+          <div className="pad" style={{ marginTop: 18 }}>
+            {t ? (
+              <div className="card stack gap10" style={{ border: 0 }}>
+                <button className="stack gap10" style={{ width: '100%', textAlign: 'right' }} onClick={() => go('driverTrip')}>
+                  <div className="row" style={{ justifyContent: 'space-between', width: '100%' }}>
+                    <span className="small muted">رحلتك من المكتب · {t.date === todayIso() ? 'اليوم' : longDate(t.date)}</span>
+                    <span className={`pill ${t.status === 'started' ? 'info' : 'warn'}`}>{t.status === 'started' ? 'بالطريق' : 'قبل الحركة'}</span>
+                  </div>
+                  <div className="row gap10" style={{ width: '100%' }}>
+                    <span className="num" style={{ fontWeight: 800, fontSize: 26, color: 'var(--navy)' }}><Time v={t.time} /></span>
+                    <span className="bold grow">{t.from} ← {t.to}</span>
+                  </div>
+                  {t.garageId ? <div className="small muted">{garageById(t.garageId).name}{t.endGarageId ? ` ← ${garageById(t.endGarageId).name}` : ''}</div> : null}
+                  <div style={{ width: '100%' }}>
+                    <div className="row small" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
+                      <span>صعدوا <b className="num">{boarded}/{seats}</b></span>
+                      <span className="muted">محجوز <span className="num">{seats}/{cap}</span></span>
+                    </div>
+                    <div style={{ height: 8, borderRadius: 999, background: 'var(--surface)', overflow: 'hidden' }}>
+                      <div style={{ width: `${seats ? (boarded / seats) * 100 : 0}%`, height: '100%', background: 'var(--success)', borderRadius: 999 }} />
+                    </div>
+                  </div>
+                </button>
+                {t.status === 'scheduled' ? (
+                  <button className="btn sm" onClick={() => setStatus('started')}><Icon name="bus" size={18} /> انطلقنا</button>
+                ) : (
+                  <button className="btn sm green" onClick={() => setStatus('arrived')}><Icon name="check" size={18} stroke={3} /> وصلنا</button>
+                )}
+                <div className="tiny muted center">التأجيل والإلغاء من المكتب بس.</div>
+              </div>
+            ) : (
+              <div className="card center small muted" style={{ border: 0, padding: 22 }}>ما عندك رحلة هسه. المكتب يحددلك الرحلات وتطلعلك هنا.</div>
+            )}
+          </div>
+        </div>
+
+        <div className="pad" style={{ marginTop: 16 }}>
+          <button className="btn" style={{ height: 64, width: '100%' }} disabled={!t} onClick={() => go('driverScan')}><Icon name="scan" size={24} /> امسح تذكرة</button>
+        </div>
+
+        <div className="pad" style={{ marginTop: 20 }}><h2 className="h3">رحلاتك الجاية من المكتب</h2></div>
+        <div className="pad stack gap10" style={{ marginTop: 8 }}>
+          {later.length === 0 ? (
+            <div className="card center small muted">ما اكو رحلات ثانية بعد.</div>
+          ) : (
+            later.map((x) => (
+              <div key={x.id} className="card row gap12">
+                <div className="num" style={{ fontWeight: 800, fontSize: 20, color: 'var(--navy)' }}><Time v={x.time} /></div>
+                <div className="grow">
+                  <div className="bold">{x.from} ← {x.to}</div>
+                  <div className="small muted">{longDate(x.date)} · محجوز <span className="num">{x.booked}</span></div>
+                </div>
+                <span className="pill info">من المكتب</span>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+      <TabBar active="driverHome" driver />
     </div>
   );
 }

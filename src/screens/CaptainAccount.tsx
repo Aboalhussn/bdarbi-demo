@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { DRIVER_TRIP_ID, money, tripById } from '../data';
 import { Icon } from '../icons';
-import { captainInfo } from '../captain';
+import { useCaptainInfo } from '../captain';
 import { useStore } from '../store';
 import { claimedRewards, useGoals } from '../goals';
 import { Sheet, TabBar, TopBar } from '../ui';
@@ -191,12 +191,12 @@ export function CaptainWallet() {
 const DOC_NAMES: [string, string][] = [['licenseFront', 'الإجازة · وجه'], ['licenseBack', 'الإجازة · ظهر'], ['annualFront', 'السنوية · وجه'], ['annualBack', 'السنوية · ظهر']];
 
 export function CaptainVehicle() {
-  const { captain, captainProfile, go } = useStore();
-  const me = captainInfo(captain, captainProfile);
+  const { go, agencyDriverId } = useStore();
+  const me = useCaptainInfo();
   const v = me.vehicle;
   return (
     <div className="screen gray">
-      <TopBar title="مركبتي والمستمسكات" />
+      <TopBar title={agencyDriverId ? "مركبتي" : "مركبتي والمستمسكات"} />
       <div className="scroll pad stack gap12" style={{ paddingBottom: 24 }}>
         <div className="form-card" style={{ gap: 10 }}>
           <div className="row gap12">
@@ -205,7 +205,7 @@ export function CaptainVehicle() {
               <b>{v.model}</b>
               <div className="tiny muted">{v.kind} · {v.seats} مقعد · {v.year}</div>
             </div>
-            <span className="pill ok">موثّقة</span>
+            <span className="pill ok">{agencyDriverId ? 'من المكتب' : 'موثّقة'}</span>
           </div>
           <div className="plate plate-static" aria-label={`رقم اللوحة ${v.plate}`}>
             <span className="plate-prov">{v.plate.split(' ')[0]}</span>
@@ -214,6 +214,10 @@ export function CaptainVehicle() {
           </div>
           <div className="row small" style={{ justifyContent: 'space-between' }}><span className="muted">اللون</span><b>{v.color}</b></div>
         </div>
+        {agencyDriverId ? (
+          <div className="demo-note" style={{ margin: 0 }}>هذي المركبة حددها إلك <b>{me.agency}</b>. إذا أكو غلط بمعلوماتها راجع المكتب.</div>
+        ) : null}
+        {agencyDriverId ? null : <>
         <div className="form-card" style={{ gap: 10 }}>
           <b>المستمسكات</b>
           <div className="doc-thumbs">
@@ -228,6 +232,7 @@ export function CaptainVehicle() {
         </div>
         <div className="demo-note" style={{ margin: 0 }}>المركبة تتثبت بحسابك. إذا بدّلت سيارتك أو جددت السنوية، راسل الدعم حتى نحدّثها.</div>
         <button className="btn soft" onClick={() => go('support', { as: 'captain' })}><Icon name="chat" size={20} /> راسل الدعم</button>
+        </>}
       </div>
     </div>
   );
@@ -235,18 +240,19 @@ export function CaptainVehicle() {
 
 /** Captain profile — same look as the passenger's, with the captain's own items. */
 export function DriverProfile() {
-  const { set, reset, go, resetDemo, bookings, captain, captainProfile, driverTrips } = useStore();
+  const { set, reset, go, resetDemo, bookings, driverTrips, agencyDriverId } = useStore();
   const [about, setAbout] = useState(false);
   const [wipe, setWipe] = useState(false);
-  const me = captainInfo(captain, captainProfile);
+  const me = useCaptainInfo();
   const rating = captainRating(bookings);
   const earn = useEarnings();
+  const office = !!agencyDriverId;
   const items: [string, string, () => void][] = [
     ['user', 'معلوماتك الشخصية', () => go('personalInfo', { captain: true })],
-    ['wallet', `المحفظة والأرباح · ${money(earn.balance)} د.ع`, () => go('captainWallet')],
-    ['bus', 'مركبتي والمستمسكات', () => go('captainVehicle')],
+    ...(office ? [] : [['wallet', `المحفظة والأرباح · ${money(earn.balance)} د.ع`, () => go('captainWallet')] as [string, string, () => void]]),
+    ['bus', office ? 'مركبتي' : 'مركبتي والمستمسكات', () => go('captainVehicle')],
     ['shield', 'سياسة الخصوصية والاستخدام', () => go('policy')],
-    ['swap', 'ارجع لتطبيق المسافر', () => { set({ role: null }); reset('login'); }],
+    ['swap', 'ارجع لتطبيق المسافر', () => { set({ role: null, agencyDriverId: null }); reset('login'); }],
     ['info', 'عن النسخة التجريبية', () => setAbout(true)],
     ['refresh', 'مسح بيانات التجربة', () => setWipe(true)],
     ['chat', 'الدعم', () => go('support', { as: 'captain' })],
@@ -262,7 +268,7 @@ export function DriverProfile() {
             <div className="grow">
               <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 22 }}>{me.name}</div>
               <div className="num small" style={{ opacity: 0.8, textAlign: 'right' }}>+964 {me.phone}</div>
-              <div className="tiny" style={{ opacity: 0.75 }}>كابتن موثّق ✓ · من <span className="num">{me.since}</span></div>
+              <div className="tiny" style={{ opacity: 0.75 }}>{office ? `سائق لدى ${me.agency}` : <>كابتن موثّق ✓ · من <span className="num">{me.since}</span></>}</div>
             </div>
           </div>
           <div className="pad row gap10" style={{ marginTop: 20 }}>
@@ -274,7 +280,7 @@ export function DriverProfile() {
             ))}
           </div>
         </div>
-        <div className="pad" style={{ marginTop: 14 }}>
+        {office ? null : <div className="pad" style={{ marginTop: 14 }}>
           <div className="rank-note">
             <span className="rank-star">★</span>
             <div className="grow">
@@ -284,8 +290,8 @@ export function DriverProfile() {
               </div>
             </div>
           </div>
-        </div>
-        <div className="pad" style={{ marginTop: 6 }}>
+        </div>}
+        <div className="pad" style={{ marginTop: office ? 14 : 6 }}>
           {items.map(([icon, label, fn]) => (
             <button key={label} className="list-item" onClick={fn}>
               <span className="ic"><Icon name={icon} size={22} /></span>
@@ -293,7 +299,7 @@ export function DriverProfile() {
               <Icon name="forward" size={18} />
             </button>
           ))}
-          <button className="list-item" onClick={() => { set({ role: null }); reset('login'); go('login', { driver: true }); }} style={{ color: 'var(--alert)' }}>
+          <button className="list-item" onClick={() => { set({ role: null, agencyDriverId: null }); reset('login'); go('login', { driver: true }); }} style={{ color: 'var(--alert)' }}>
             <span className="ic" style={{ background: 'var(--alert-bg)', color: 'var(--alert)' }}><Icon name="logout" size={22} /></span>
             <span className="grow bold">تسجيل خروج</span>
           </button>
