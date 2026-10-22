@@ -7,6 +7,7 @@ import { useStore } from '../store';
 import { Sheet, TabBar, Time, TopBar, openExternal } from '../ui';
 import { shrinkImage } from './Account';
 import { AboutDemo } from './Booking';
+import { OfficePackages } from './Packages';
 import { VehicleFields, emptyVehicle, vehicleError, type VehicleDraft } from './Captain';
 import { PhoneField, formatPhone, phoneError } from './Welcome';
 
@@ -149,8 +150,8 @@ export function AgencyHome() {
 
 /** Trips leaving today (or tomorrow) and when; tap one to see who's booked on it. */
 export function AgencyTrips() {
-  const { agencyTrips, go } = useStore();
-  const [day, setDay] = useState<'today' | 'tomorrow' | 'all'>('today');
+  const { agencyTrips, go, route } = useStore();
+  const [day, setDay] = useState<'today' | 'tomorrow' | 'all' | 'pkg'>(route.params?.tab === 'pkg' ? 'pkg' : 'today');
   const today = todayIso();
   const tomorrow = addDays(today, 1);
   const list = agencyTrips
@@ -160,13 +161,15 @@ export function AgencyTrips() {
     <div className="screen gray">
       <div className="topbar"><div className="title" style={{ fontSize: 24, fontWeight: 800 }}>الرحلات</div></div>
       <div className="pad row gap8" role="tablist" aria-label="اليوم" style={{ paddingBottom: 10 }}>
-        {([['today', 'اليوم'], ['tomorrow', 'باجر'], ['all', 'كل الجاية']] as const).map(([id, l]) => (
+        {([['today', 'اليوم'], ['tomorrow', 'باجر'], ['all', 'كل الجاية'], ['pkg', 'السفرات']] as const).map(([id, l]) => (
           <button key={id} role="tab" aria-selected={day === id} className={`chip ag-chip ${day === id ? 'on' : ''}`} onClick={() => setDay(id)}>{l}</button>
         ))}
       </div>
       <div className="scroll with-tabs pad stack gap10">
+        {day === 'pkg' ? <OfficePackages /> : <>
         {list.length === 0 ? <div className="card center small muted" style={{ padding: 22 }}>ما اكو رحلات. اضغط + بالشريط الجوة حتى تضيف.</div> : null}
         {list.map((t) => <TripCard key={t.id} t={t} onClick={() => go('agencyTrip', { id: t.id })} />)}
+        </>}
       </div>
       <TabBar active="agencyTrips" agency />
     </div>

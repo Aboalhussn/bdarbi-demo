@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { agencyManifest, seedAgencyTrips, span, SEED_DRIVERS, SEED_VEHICLES, AGENCY_NAME, type AgencyDriver, type AgencyTrip, type AgencyVehicle } from './agency';
+import { seedPackages, type Package, type PkgBooking } from './packages';
 import { DEMO_PASSENGERS, DRIVER_TRIP_ID, TRIPS, fmt12, todayIso, tripById, type VehicleKind } from './data';
 
 export type Role = 'passenger' | 'driver' | 'agency';
@@ -126,6 +127,8 @@ interface Persisted {
   agencyVehicles: AgencyVehicle[];
   agencyInfo: { name: string; phone: string; email: string; address: string; logo: string };
   agencyDriverId: string | null; // set when the signed-in captain is an office driver
+  packages: Package[];
+  pkgBookings: PkgBooking[];
   captainNotifs: Notif[];
   captainCard: SavedCard | null; // where the captain's earnings are paid out
   goalsClaimed: string[]; // ids of captain challenges whose reward was collected
@@ -207,6 +210,8 @@ const initial: Persisted = {
   agencyVehicles: SEED_VEHICLES,
   agencyInfo: { name: AGENCY_NAME, phone: '770 555 1234', email: 'info@dijla-travel.iq', address: 'بغداد، الكرادة داخل', logo: '' },
   agencyDriverId: null,
+  packages: seedPackages(todayIso()),
+  pkgBookings: [],
   captainNotifs: [
     { id: 'cn1', at: 0, icon: 'trophy', title: 'تحدي جديد 🏆', body: 'خلّص 3 رحلات خلال يومين واربح 25,000 د.ع تنضاف لمحفظتك.', read: false, tone: 'ok', link: { name: 'driverGoals' } },
     { id: 'cn0', at: 0, icon: 'star', title: 'تقييمك ★ 4.9', body: 'تقييمك عالي، فرحلاتك تطلع بأول نتائج البحث للمسافرين. كمّل هيج!', read: true, tone: 'info' },
@@ -223,6 +228,10 @@ function load(): Persisted {
       const merged = { ...initial, ...saved, support: { ...initial.support, ...(saved.support ?? {}) } };
       // Demo agency trips are placed around the first run — refresh them once every one has finished.
       if (!merged.agencyTrips.some((t) => span(t.date, t.time, t.hours)[1] > Date.now() / 60000)) merged.agencyTrips = seedAgencyTrips();
+      // Keep the demo packages in the future: refresh the seeded ones once they've passed.
+      if (merged.packages.filter((p) => p.createdAt === 0).every((p) => p.date < todayIso())) {
+        merged.packages = [...seedPackages(todayIso()), ...merged.packages.filter((p) => p.createdAt !== 0)];
+      }
       return merged;
     }
   } catch {
@@ -312,6 +321,7 @@ interface Store extends Persisted {
   markAllRead: (as?: 'passenger' | 'captain') => void;
   trip: TripState; // today's state of the captain's trip
   myAgencyTrip: () => AgencyTrip | undefined; // the office driver's current trip
+  addPkgBooking: (b: PkgBooking) => void;
   setTrip: (patch: Partial<TripState>) => void;
   rate: (code: string, r: Rating) => void;
 }
@@ -422,6 +432,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return {
       ...data,
       myAgencyTrip,
+      addPkgBooking: (b) =>
+        setData((d) => {
+          const p = d.packages.find((x) => x.id === b.pkgId);
+          const n: Notif = { id: 'n' + Date.now(), at: Date.now(), read: false, icon: 'ticket', tone: 'ok', title: 'تأكد حجز السفرة ✓', body: `${p?.title ?? 'السفرة'} · ${b.adults + b.children} أشخاص. رمز الحجز ${b.code}.`, link: { name: 'pkgTicket', params: { code: b.code } } };
+          return {
+            ...d,
+            pkgBookings: [b, ...d.pkgBookings],
+            packages: d.packages.map((x) => (x.id === b.pkgId ? { ...x, booked: x.booked + b.adults + b.children } : x)),
+            notifications: [n, ...d.notifications],
+          };
+        }),
       route: stack[stack.length - 1],
       stackDepth: stack.length,
       go,

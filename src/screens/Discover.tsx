@@ -1,3 +1,4 @@
+import { PackageList } from './Packages';
 import { useEffect, useMemo, useState } from 'react';
 import { Share } from '@capacitor/share';
 import { Capacitor } from '@capacitor/core';
@@ -181,6 +182,7 @@ export function Trips() {
   const [dest, setDest] = useState(String(route.params?.dest ?? DESTINATIONS[0]));
   const [day, setDay] = useState(String(route.params?.date ?? days[0].iso));
   const garage = garageById(garageId);
+  const [mode, setMode] = useState<'trip' | 'pkg'>(route.params?.pkg ? 'pkg' : 'trip');
   const list = TRIPS.filter((t) => t.to === dest).sort((a, b) => a.time.localeCompare(b.time));
   const isToday = day === todayIso();
   const now = new Date();
@@ -198,6 +200,13 @@ export function Trips() {
             <Icon name="pin" size={14} /> من: {garage.name.replace('كراج ', '')}
           </button>
         </div>
+        <div className="pad" style={{ paddingBottom: mode === 'pkg' ? 18 : 10 }}>
+          <div className="mode-seg" role="tablist" aria-label="نوع الرحلة">
+            <button role="tab" aria-selected={mode === 'trip'} className={mode === 'trip' ? 'on' : ''} onClick={() => setMode('trip')}>رحلات نقل</button>
+            <button role="tab" aria-selected={mode === 'pkg'} className={mode === 'pkg' ? 'on' : ''} onClick={() => setMode('pkg')}>سفرات المكاتب</button>
+          </div>
+        </div>
+        {mode === 'trip' ? <>
         <div className="small" style={{ padding: '0 20px', color: 'rgba(255,255,255,.72)' }}>وين رايح؟</div>
         <div className="hscroll" role="tablist" style={{ paddingTop: 8 }}>
           {DESTINATIONS.map((d) => (
@@ -212,8 +221,10 @@ export function Trips() {
             </button>
           ))}
         </div>
+        </> : null}
       </div>
       <div className="scroll with-tabs">
+        {mode === 'pkg' ? <PackageList /> : <>
         <div className="pad row" style={{ justifyContent: 'space-between', alignItems: 'baseline', marginTop: 16 }}>
           <h2 className="h3">بغداد ← {dest}</h2>
           <span className="small muted">{list.length} رحلات · {list[0]?.duration}</span>
@@ -249,6 +260,7 @@ export function Trips() {
             );
           })}
         </div>
+        </>}
       </div>
       <TabBar active="trips" />
     </div>

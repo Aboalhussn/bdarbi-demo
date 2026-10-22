@@ -6,6 +6,7 @@ import { QR, Sheet, TabBar, Time, TopBar } from '../ui';
 import { Avatar } from './Account';
 import { renderTicket, saveTicketImage } from '../ticketImage';
 import { liveOf } from '../live';
+import { PkgArtSvg } from './Packages';
 
 function addMin(hhmm: string, m: number) {
   const [h, mi] = hhmm.split(':').map(Number);
@@ -488,7 +489,7 @@ export function Ticket() {
 }
 
 export function MyTrips() {
-  const { bookings, go, boardedAt } = useStore();
+  const { bookings, go, boardedAt, pkgBookings, packages } = useStore();
   const [tab, setTab] = useState<'up' | 'past' | 'cancel'>('up');
   const today = todayIso();
   const list = bookings.filter((b) => (tab === 'cancel' ? b.status === 'cancelled' : b.status === 'confirmed' && (tab === 'up' ? b.date >= today : b.date < today)));
@@ -503,7 +504,21 @@ export function MyTrips() {
         </div>
       </div>
       <div className="scroll with-tabs pad stack gap10" style={{ paddingTop: 14 }}>
-        {list.length === 0 ? (
+        {pkgBookings
+          .filter((b) => { const p = packages.find((x) => x.id === b.pkgId); return p && (tab === 'cancel' ? b.status === 'cancelled' : b.status === 'confirmed' && (tab === 'up' ? p.date >= today : p.date < today)); })
+          .map((b) => {
+            const p = packages.find((x) => x.id === b.pkgId)!;
+            return (
+              <button key={b.code} className="card row gap12" style={{ textAlign: 'right' }} onClick={() => go('pkgTicket', { code: b.code })}>
+                <span style={{ width: 58, height: 58, borderRadius: 14, overflow: 'hidden', flexShrink: 0 }}><PkgArtThumb id={p.id} /></span>
+                <span className="grow stack gap6">
+                  <span className="row" style={{ justifyContent: 'space-between' }}><b>{p.title}</b><span className="pill ok">سفرة</span></span>
+                  <span className="small muted">{longDate(p.date)} · {b.adults + b.children} أشخاص · <span className="code" style={{ letterSpacing: 1 }}>{b.code}</span></span>
+                </span>
+              </button>
+            );
+          })}
+        {list.length === 0 && !pkgBookings.some((b) => tab === 'up' && b.status === 'confirmed') ? (
           <div className="empty">
             <img src="./img/mascot.png" alt="" style={{ height: 160 }} />
             <b style={{ color: 'var(--ink)' }}>{tab === 'up' ? 'ما عندك رحلات جاية' : tab === 'past' ? 'بعد ما سافرت ويانا' : 'ما عندك حجوزات ملغية'}</b>
@@ -616,4 +631,11 @@ export function AboutDemo({ onClose }: { onClose: () => void }) {
       <button className="btn" onClick={onClose}>تمام</button>
     </div>
   );
+}
+
+function PkgArtThumb({ id }: { id: string }) {
+  const { packages } = useStore();
+  const p = packages.find((x) => x.id === id);
+  if (!p) return null;
+  return p.photos[0] ? <img src={p.photos[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <PkgArtSvg kind={p.art} />;
 }

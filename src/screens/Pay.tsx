@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { money, newCode, tripById } from '../data';
 import { Icon } from '../icons';
 import { useStore, type Booking } from '../store';
+import type { PkgBooking } from '../packages';
 import { TopBar } from '../ui';
 import { CardVisual } from './Account';
 import { formatPhone, phoneError } from './Welcome';
@@ -10,11 +11,15 @@ type Stage = 'start' | 'otp' | 'processing' | 'done' | 'failed';
 
 /** Demo payment: Zain Cash or card, confirmed with a one-time code before the seat is booked. */
 export function Pay() {
-  const { route, phone, card, addBooking, set, usedCoupons, reset, go, back, showToast } = useStore();
+  const { route, phone, card, addBooking, addPkgBooking, packages, set, usedCoupons, reset, go, back, showToast } = useStore();
   const draft = route.params?.draft as Omit<Booking, 'code' | 'createdAt'> | undefined;
   const method = route.params?.method === 'card' ? 'card' : 'zain';
   const coupon = route.params?.coupon as string | null | undefined;
   const trip = draft ? tripById(draft.tripId) : undefined;
+  // A package booking pays through the same screen.
+  const pkgDraft = route.params?.pkg as PkgBooking | undefined;
+  const pkg = pkgDraft ? packages.find((p) => p.id === pkgDraft.pkgId) : undefined;
+  const amount = pkgDraft ? pkgDraft.paid : draft?.total ?? 0;
 
   const [stage, setStage] = useState<Stage>('start');
   const [wallet, setWallet] = useState(formatPhone(phone || ''));
@@ -38,7 +43,7 @@ export function Pay() {
     if (stage === 'otp') window.setTimeout(() => otpRef.current?.focus(), 200);
   }, [stage]);
 
-  if (!draft || !trip) {
+  if (!(draft && trip) && !(pkgDraft && pkg)) {
     return (
       <div className="screen">
         <TopBar title="الدفع" />
@@ -81,8 +86,13 @@ export function Pay() {
     setErr('');
     setStage('processing');
     window.setTimeout(() => {
-      const code = newCode();
-      addBooking({ ...draft, code, createdAt: Date.now() });
+      let code = newCode();
+      if (pkgDraft) {
+        code = pkgDraft.code;
+        addPkgBooking({ ...pkgDraft, createdAt: Date.now() });
+      } else if (draft) {
+        addBooking({ ...draft, code, createdAt: Date.now() });
+      }
       if (coupon) set({ usedCoupons: [...usedCoupons, coupon] });
       setBookedCode(code);
       setStage('done');
@@ -98,10 +108,10 @@ export function Pay() {
         <div className="pay-result">
           <div className={`pay-ring ${done ? 'ok' : ''}`}>{done ? <Icon name="check" size={44} stroke={3} /> : null}</div>
           <h1 className="h2" style={{ marginTop: 18 }}>{done ? 'تم الدفع ✓' : 'جاري تأكيد الدفع…'}</h1>
-          <div className="muted small">{done ? 'انحجزت مقاعدك وطلعت تذكرتك' : 'لا تسد التطبيق'}</div>
+          <div className="muted small">{done ? 'انحجز مكانك وطلع رمز الحجز' : 'لا تسد التطبيق'}</div>
           {done ? (
             <div className="card stack gap8" style={{ width: '100%', marginTop: 22 }}>
-              <div className="row small" style={{ justifyContent: 'space-between' }}><span className="muted">المبلغ</span><b className="num">{money(draft.total)} د.ع</b></div>
+              <div className="row small" style={{ justifyContent: 'space-between' }}><span className="muted">المبلغ</span><b className="num">{money(amount)} د.ع</b></div>
               <div className="row small" style={{ justifyContent: 'space-between' }}><span className="muted">من</span><b>{target}</b></div>
               <div className="row small" style={{ justifyContent: 'space-between' }}><span className="muted">إلى</span><b>بدربي</b></div>
               <div className="row small" style={{ justifyContent: 'space-between' }}><span className="muted">رقم العملية</span><b className="num" dir="ltr">{ref}</b></div>
@@ -110,7 +120,7 @@ export function Pay() {
         </div>
         {done ? (
           <div className="bottombar">
-            <button className="btn" onClick={() => { reset('home'); go('ticket', { code: bookedCode, fresh: true }); }}><Icon name="ticket" size={20} /> شوف التذكرة</button>
+            <button className="btn" onClick={() => { reset('home'); go(pkgDraft ? 'pkgTicket' : 'ticket', { code: bookedCode, fresh: true }); }}><Icon name="ticket" size={20} /> شوف التذكرة</button>
           </div>
         ) : null}
       </div>
@@ -135,11 +145,11 @@ export function Pay() {
 
   return (
     <div className="screen gray">
-      <TopBar title={method === 'zain' ? 'الدفع بزين كاش' : 'الدفع بالبطاقة'} sub={`${trip.from} ← ${trip.to} · مقاعد ${draft.seats.join('، ')}`} onBack={() => { if (stage === 'otp') { setStage('start'); setErr(''); } else back(); }} />
+      <TopBar title={method === 'zain' ? 'الدفع بزين كاش' : 'الدفع بالبطاقة'} sub={pkg ? pkg.title : `${trip!.from} ← ${trip!.to} · مقاعد ${draft!.seats.join('، ')}`} onBack={() => { if (stage === 'otp') { setStage('start'); setErr(''); } else back(); }} />
       <div className="scroll pad stack gap14" style={{ paddingBottom: 24 }}>
         <div className="pay-amount">
           <div className="small" style={{ opacity: 0.8 }}>المبلغ المطلوب</div>
-          <div className="num" style={{ fontSize: 34, fontWeight: 800 }}>{money(draft.total)} <span style={{ fontSize: 15 }}>د.ع</span></div>
+          <div className="num" style={{ fontSize: 34, fontWeight: 800 }}>{money(amount)} <span style={{ fontSize: 15 }}>د.ع</span></div>
           <div className="tiny" style={{ opacity: 0.75 }}>إلى: بدربي · رقم العملية <span className="num" dir="ltr">{ref}</span></div>
         </div>
 
@@ -196,7 +206,7 @@ export function Pay() {
       </div>
       <div className="bottombar">
         {stage === 'start' ? (
-          <button className="btn" onClick={start}>{method === 'zain' ? 'ارسل رمز التأكيد' : `ادفع ${money(draft.total)} د.ع`}</button>
+          <button className="btn" onClick={start}>{method === 'zain' ? 'ارسل رمز التأكيد' : `ادفع ${money(amount)} د.ع`}</button>
         ) : (
           <button className="btn" disabled={otp.length !== 6} onClick={verify}>أكّد الدفع</button>
         )}

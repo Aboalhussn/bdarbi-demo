@@ -16,6 +16,7 @@ import { DriverAddTrip, DriverHome, DriverRequests, DriverScan, DriverScanResult
 import { CaptainVehicle, CaptainWallet, DriverGoals, DriverProfile } from './screens/CaptainAccount';
 import { Support } from './screens/Support';
 import { Pay } from './screens/Pay';
+import { AgencyNew, PackageBook, PackageDetail, PkgCreate, PkgTicket } from './screens/Packages';
 import { AgencyAddVehicle, AgencyDrivers, AgencyFleet, AgencyHome, AgencyInfo, AgencyProfile, AgencyTripDetail, AgencyTrips } from './screens/Agency';
 
 const SCREENS: Record<string, ComponentType> = {
@@ -45,6 +46,11 @@ const SCREENS: Record<string, ComponentType> = {
   notifications: Notifications,
   support: Support,
   pay: Pay,
+  package: PackageDetail,
+  packageBook: PackageBook,
+  pkgTicket: PkgTicket,
+  agencyNew: AgencyNew,
+  pkgCreate: PkgCreate,
   agencyHome: AgencyHome,
   agencyTrips: AgencyTrips,
   agencyTrip: AgencyTripDetail,

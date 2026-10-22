@@ -62,7 +62,7 @@ export function TabBar({ active, driver = false, agency = false }: { active: str
             aria-label={t.label}
             aria-current={active === t.key ? 'page' : undefined}
             onClick={() => {
-              if (t.key === 'agencyAdd') return go('driverAddTrip', { agency: true });
+              if (t.key === 'agencyAdd') return go('agencyNew');
               if (t.key === active) return;
               if (t.key === home) reset(home);
               else if (t.key === 'driverScan') go(t.key);

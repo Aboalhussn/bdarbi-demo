@@ -166,7 +166,7 @@ export function RangeField({ start, end, min, onChange }: { start: string; end: 
 }
 
 /** A tappable field that opens a themed 12-hour clock: pick the hour, then the minutes, then ص / م. */
-export function TimeField({ label, value, onChange }: { label: string; value: string; onChange: (hhmm: string) => void }) {
+export function TimeField({ label, value, onChange, compact = false }: { label: string; value: string; onChange: (hhmm: string) => void; compact?: boolean }) {
   const [open, setOpen] = useState(false);
   const [h12, setH12] = useState(12);
   const [m, setM] = useState(0);
@@ -209,6 +209,9 @@ export function TimeField({ label, value, onChange }: { label: string; value: st
 
   return (
     <>
+      {compact ? (
+        <button className="time-chip num" aria-label={`${label}: ${fmt12(value)}`} onClick={show}>{fmt12(value)}</button>
+      ) : (
       <button className="datefield" onClick={show}>
         <span className="df-ic"><Icon name="clock" size={20} /></span>
         <span className="grow">
@@ -217,6 +220,7 @@ export function TimeField({ label, value, onChange }: { label: string; value: st
         </span>
         <Icon name="forward" size={16} />
       </button>
+      )}
       <Sheet open={open} onClose={() => setOpen(false)} label={label}>
         <h2 className="h3">{label}</h2>
         <div className="clock-top">
