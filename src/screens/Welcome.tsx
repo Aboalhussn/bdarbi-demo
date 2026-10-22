@@ -156,7 +156,7 @@ export function PhoneField({ value, onChange, error }: { value: string; onChange
 }
 
 export function Login() {
-  const { go, reset, set, route } = useStore();
+  const { go, reset, set, route, phone: savedPhone, password } = useStore();
   const agency = route.params?.agency === true;
   const driver = route.params?.driver === true || agency;
   const [phone, setPhone] = useState('');
@@ -171,7 +171,13 @@ export function Login() {
     const pe = pass.length < 4 ? 'كلمة السر 4 أحرف أو أكثر' : '';
     setPassErr(pe);
     if (e || pe) return;
-    go('otp', { phone, driver: driver && !agency, agency });
+    // Signing in needs no code: the number was confirmed when the account was made.
+    if (savedPhone && formatPhone(savedPhone) === phone && password && pass !== password) {
+      setPassErr('كلمة السر غلط. جرّب مرة ثانية أو اضغط «نسيت كلمة السر؟»');
+      return;
+    }
+    set({ role: 'passenger', phone });
+    reset('home');
   };
 
   return (
@@ -212,6 +218,7 @@ export function Login() {
             </div>
             <div className="err">{passErr}</div>
           </div>
+          <button className="link small" style={{ alignSelf: 'flex-start', margin: '-2px 0 8px' }} onClick={() => go('forgot')}>نسيت كلمة السر؟</button>
           <button className="btn" onClick={submit}>تسجيل الدخول</button>
           <div className="small muted center" style={{ marginTop: 6 }}>نسخة تجريبية: أي رقم صحيح وأي كلمة سر تشتغل</div>
           {driver && !agency ? (
@@ -268,7 +275,7 @@ export function Register() {
     if (!agree) e.agree = 'لازم توافق على الشروط';
     setErrs(e);
     if (Object.keys(e).length) return;
-    go('otp', { phone, name: name.trim() });
+    go('otp', { phone, name: name.trim(), pass, purpose: 'register' });
   };
 
   return (
@@ -305,12 +312,8 @@ export function Register() {
   );
 }
 
-export function Otp() {
-  const { route, back, reset, set, captain, agencyDrivers, agencyInfo } = useStore();
-  const phone = String(route.params?.phone ?? '');
-  const driver = route.params?.driver === true;
-  const agency = route.params?.agency === true;
-  const name = route.params?.name ? String(route.params.name) : undefined;
+/** The 4-digit code pad, used wherever a phone number has to be confirmed. */
+export function OtpPad({ phone, onDone, title = 'دخّل الرمز', note }: { phone: string; onDone: () => void; title?: string; note?: string }) {
   const [code, setCode] = useState('');
   const [left, setLeft] = useState(42);
   const [checking, setChecking] = useState(false);
@@ -324,46 +327,10 @@ export function Otp() {
   useEffect(() => {
     if (code.length !== 4) return;
     setChecking(true);
-    const t = window.setTimeout(() => {
-      if (IS_PARTNER) {
-        // In the partner app the number decides who signs in.
-        const digits = phone.replace(/\s/g, '');
-        if (digits === ADMIN_PHONE) {
-          set({ role: 'admin', agencyDriverId: null });
-          reset('admin');
-          return;
-        }
-        if (digits === agencyInfo.phone.replace(/\s/g, '')) {
-          set({ role: 'agency', agencyDriverId: null });
-          reset('agencyHome');
-          return;
-        }
-        if (captain?.status === 'pending' && captain.phone === phone) {
-          reset('captainPending');
-          return;
-        }
-        const officeDriver = agencyDrivers.find((d) => d.phone === digits);
-        set({ role: 'driver', agencyDriverId: officeDriver?.id ?? null });
-        reset('driverHome');
-        return;
-      }
-      // A captain whose sign-up is still being reviewed goes to the waiting screen.
-      if (driver && captain?.status === 'pending' && captain.phone === phone) {
-        reset('captainPending');
-        return;
-      }
-      if (agency) {
-        set({ role: 'agency' });
-        reset('agencyHome');
-        return;
-      }
-      // A driver whose account was made by a travel office signs in with the number the office gave.
-      const office = driver ? agencyDrivers.find((d) => d.phone === phone.replace(/\s/g, '')) : undefined;
-      set({ role: driver ? 'driver' : 'passenger', agencyDriverId: office?.id ?? null, ...(driver ? {} : { phone }), ...(name ? { name } : {}) });
-      reset(driver ? 'driverHome' : 'home');
-    }, 600);
+    const t = window.setTimeout(onDone, 600);
     return () => window.clearTimeout(t);
-  }, [code, driver, agency, name, phone, reset, set, agencyDrivers, agencyInfo]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code]);
 
   const press = (d: string) => {
     if (checking) return;
@@ -372,17 +339,11 @@ export function Otp() {
   };
 
   return (
-    <div className="screen">
-      <header className="topbar">
-        <button className="iconbtn" aria-label="رجوع" onClick={back}>
-          <Icon name="back" size={20} />
-        </button>
-        <div className="title" />
-      </header>
+    <>
       <div className="scroll pad stack" style={{ paddingBottom: 'calc(20px + var(--safe-bottom))' }}>
-        <h1 style={{ fontSize: 28, fontWeight: 700, color: 'var(--navy)' }}>دخّل الرمز</h1>
+        <h1 style={{ fontSize: 28, fontWeight: 700, color: 'var(--navy)' }}>{title}</h1>
         <p className="muted" style={{ margin: '4px 0 0' }}>
-          دزّينا رمز من 4 أرقام على <span className="num bold" style={{ color: 'var(--ink)' }}>+964 {phone}</span>
+          {note ?? 'نتأكد إن الرقم إلك.'} دزّينا رمز من 4 أرقام على <span className="num bold" style={{ color: 'var(--ink)' }}>+964 {phone}</span>
         </p>
         <div className="otp-boxes" style={{ marginTop: 30 }} aria-live="polite">
           {[0, 1, 2, 3].map((i) => (
@@ -411,13 +372,64 @@ export function Otp() {
           </button>
         </div>
       </div>
+    </>
+  );
+}
+
+/** Full-screen code step on top of a sign-up form, so the form keeps what was typed. */
+export function OtpOverlay({ phone, onDone, onBack, note }: { phone: string; onDone: () => void; onBack: () => void; note?: string }) {
+  return (
+    <div className="screen otp-overlay">
+      <header className="topbar">
+        <button className="iconbtn" aria-label="رجوع" onClick={onBack}><Icon name="back" size={20} /></button>
+        <div className="title" />
+      </header>
+      <OtpPad phone={phone} onDone={onDone} title="أكّد رقمك" note={note} />
+    </div>
+  );
+}
+
+/** Code screen. Only sign-up and password reset come here; signing in goes straight in. */
+export function Otp() {
+  const { route, back, reset, set, go } = useStore();
+  const phone = String(route.params?.phone ?? '');
+  const purpose = String(route.params?.purpose ?? 'register');
+  const name = route.params?.name ? String(route.params.name) : undefined;
+  const pass = route.params?.pass ? String(route.params.pass) : undefined;
+  const done = () => {
+    if (purpose === 'reset') {
+      reset('login');
+      go('resetPassword', { phone });
+      return;
+    }
+    set({ role: 'passenger', phone, ...(name ? { name } : {}), ...(pass ? { password: pass } : {}) });
+    reset('home');
+  };
+  return (
+    <div className="screen">
+      <header className="topbar">
+        <button className="iconbtn" aria-label="رجوع" onClick={back}><Icon name="back" size={20} /></button>
+        <div className="title" />
+      </header>
+      <OtpPad phone={phone} onDone={done} title={purpose === 'reset' ? 'رمز الاسترجاع' : 'أكّد رقمك'} note={purpose === 'reset' ? 'حتى تغيّر كلمة السر.' : undefined} />
     </div>
   );
 }
 
 /** Sign-in for the partner app «كابتن بدربي»: one form for captains, office drivers, travel offices and the admin. */
 export function PartnerLogin() {
-  const { go, agencyInfo } = useStore();
+  const { go, agencyInfo, set, reset, captain, agencyDrivers, officeSignup } = useStore();
+  // The number decides who signs in. No code here: numbers are confirmed when the account is made.
+  const signIn = (p: string) => {
+    const digits = p.replace(/\s/g, '');
+    if (digits === ADMIN_PHONE) { set({ role: 'admin', agencyDriverId: null }); reset('admin'); return; }
+    if (digits === agencyInfo.phone.replace(/\s/g, '')) { set({ role: 'agency', agencyDriverId: null }); reset('agencyHome'); return; }
+    if (officeSignup && officeSignup.phone.replace(/\s/g, '') === digits) { reset('officePending'); return; }
+    if (captain?.status === 'pending' && captain.phone.replace(/\s/g, '') === digits) { reset('captainPending'); return; }
+    const officeDriver = agencyDrivers.find((d) => d.phone === digits);
+    set({ role: 'driver', agencyDriverId: officeDriver?.id ?? null });
+    reset('driverHome');
+  };
   const [phone, setPhone] = useState('');
   const [pass, setPass] = useState('');
   const [show, setShow] = useState(false);
@@ -429,7 +441,7 @@ export function PartnerLogin() {
     const pe = pass.length < 4 ? 'كلمة السر 4 أحرف أو أكثر' : '';
     setPassErr(pe);
     if (e || pe) return;
-    go('otp', { phone, driver: true });
+    signIn(phone);
   };
   const demo: [string, string][] = [
     ['كابتن', '780 111 2222'],
@@ -463,6 +475,7 @@ export function PartnerLogin() {
             </div>
             <div className="err">{passErr}</div>
           </div>
+          <button className="link small" style={{ alignSelf: 'flex-start', margin: '-2px 0 8px' }} onClick={() => go('forgot')}>نسيت كلمة السر؟</button>
           <button className="btn" onClick={submit}>تسجيل الدخول</button>
           <div className="card flat stack gap6" style={{ marginTop: 12 }}>
             <b className="small">أرقام التجربة (أي كلمة سر):</b>
@@ -475,6 +488,9 @@ export function PartnerLogin() {
           </div>
           <button className="btn ghost" style={{ margin: '14px 0 30px' }} onClick={() => go('captainRegister')}>
             <Icon name="user" size={20} /> كابتن جديد؟ سجّل هنا
+          </button>
+          <button className="btn ghost" style={{ margin: '-18px 0 30px' }} onClick={() => go('officeRegister')}>
+            <Icon name="hotel" size={20} /> مكتب سفر جديد؟ سجّل مكتبك
           </button>
         </div>
       </div>

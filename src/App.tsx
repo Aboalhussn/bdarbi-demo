@@ -1,10 +1,13 @@
-import { useEffect, type ComponentType } from 'react';
+import { useEffect, useState, type ComponentType } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { App as CapApp } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { useStore } from './store';
 import { Login, OnboardLocation, OnboardNotify, Otp, PartnerLogin, Register, Splash } from './screens/Welcome';
 import { AdminApp } from './screens/Admin';
+import { Help, Settings } from './screens/Settings';
+import { Offline, SeatTaken, TripCancelled } from './screens/States';
+import { ForgotPassword, OfficePending, OfficeRegister, ResetPassword } from './screens/Accounts';
 import { IS_PARTNER } from './mode';
 import { Garages, Home, Rewards, Search, Trips } from './screens/Discover';
 import { Checkout, MyTrips, Profile, Seats, Ticket } from './screens/Booking';
@@ -49,6 +52,14 @@ const SCREENS: Record<string, ComponentType> = {
   support: Support,
   pay: Pay,
   admin: AdminApp,
+  forgot: ForgotPassword,
+  settings: Settings,
+  tripCancelled: TripCancelled,
+  seatTaken: SeatTaken,
+  help: Help,
+  resetPassword: ResetPassword,
+  officeRegister: OfficeRegister,
+  officePending: OfficePending,
   package: PackageDetail,
   packageBook: PackageBook,
   pkgTicket: PkgTicket,
@@ -81,7 +92,13 @@ const SCREENS: Record<string, ComponentType> = {
 const NAVY_TOP = new Set(['splash', 'login', 'trips', 'ticket', 'profile', 'driverHome', 'driverProfile', 'driverScan', 'driverGoals', 'agencyHome', 'agencyProfile', 'admin']);
 
 export default function App() {
-  const { route, stackDepth, back, toast, role } = useStore();
+  const { route, stackDepth, back, toast, role, dark, lang } = useStore();
+
+  // Dark mode and the chosen language apply to the whole app.
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', dark);
+    document.documentElement.lang = lang === 'en' ? 'en' : lang === 'ku' ? 'ckb' : 'ar';
+  }, [dark, lang]);
   const Screen = SCREENS[route.name] ?? Home;
 
   useEffect(() => {
@@ -108,9 +125,25 @@ export default function App() {
     void StatusBar.setStyle({ style: navy ? Style.Dark : Style.Light }).catch(() => undefined);
   }, [route.name]);
 
+  // No internet: the real event, or the demo button in settings.
+  const [offline, setOffline] = useState(() => typeof navigator !== 'undefined' && navigator.onLine === false);
+  useEffect(() => {
+    const off = () => setOffline(true);
+    const on = () => setOffline(false);
+    window.addEventListener('offline', off);
+    window.addEventListener('online', on);
+    window.addEventListener('bdarbi-offline-demo', off);
+    return () => {
+      window.removeEventListener('offline', off);
+      window.removeEventListener('online', on);
+      window.removeEventListener('bdarbi-offline-demo', off);
+    };
+  }, []);
+
   return (
     <div className={`app ${role === 'admin' ? 'app-admin' : ''}`}>
       <Screen key={`${stackDepth}-${route.name}`} />
+      {offline ? <Offline onRetry={() => { if (navigator.onLine) setOffline(false); }} /> : null}
       {toast ? <div className="toast" role="status">{toast}</div> : null}
     </div>
   );

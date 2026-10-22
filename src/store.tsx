@@ -1,7 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { agencyManifest, seedAgencyTrips, span, SEED_DRIVERS, SEED_VEHICLES, AGENCY_NAME, type AgencyDriver, type AgencyTrip, type AgencyVehicle } from './agency';
+import { phoneNotify } from './phoneNotify';
+import type { AdminCoupon } from './coupons';
 import { seedPackages, type Package, type PkgBooking } from './packages';
-import { DEMO_PASSENGERS, DRIVER_TRIP_ID, TRIPS, fmt12, todayIso, tripById, type VehicleKind } from './data';
+import { DEMO_PASSENGERS, DRIVER_TRIP_ID, GARAGES, TRIPS, fmt12, todayIso, tripById, type Garage, type VehicleKind } from './data';
 
 export type Role = 'passenger' | 'driver' | 'agency' | 'admin';
 
@@ -133,6 +135,12 @@ interface Persisted {
   adminThreads: AdminThread[];
   adminGoals: AdminGoal[];
   payouts: Payout[];
+  officeSignup: OfficeSignup | null;
+  lang: 'ar' | 'en' | 'ku';
+  adminCoupons: AdminCoupon[];
+  extraGarages: Garage[];
+  notifOn: boolean;
+  dark: boolean;
   captainNotifs: Notif[];
   captainCard: SavedCard | null; // where the captain's earnings are paid out
   goalsClaimed: string[]; // ids of captain challenges whose reward was collected
@@ -154,6 +162,18 @@ export interface Withdrawal {
   method: string;
   at: number;
   status: 'pending' | 'paid';
+}
+
+export interface OfficeSignup {
+  name: string;
+  manager: string;
+  phone: string;
+  city: string;
+  address: string;
+  fleet: string; // e.g. "2 باص · 3 كوستر"
+  docs: Record<string, string>;
+  submittedAt: number;
+  status: 'pending' | 'approved';
 }
 
 export interface AdminRequest {
@@ -276,6 +296,15 @@ const initial: Persisted = {
     ] },
   ],
   adminGoals: [],
+  officeSignup: null,
+  lang: 'ar',
+  adminCoupons: [
+    { code: 'LOYAL10', kind: 'percent', value: 15, max: 15000, audience: 'trips', minTrips: 10, phones: [], expires: '', active: true, createdAt: 0 },
+    { code: 'BASRA5', kind: 'amount', value: 5000, max: 0, audience: 'all', minTrips: 0, phones: [], expires: '', active: true, createdAt: 0 },
+  ],
+  extraGarages: [],
+  notifOn: true,
+  dark: false,
   payouts: [
     { id: 'w1', name: 'كريم عبد الله', who: 'سائق مكتب', amount: 350000, method: 'زين كاش', at: Date.now() - 5 * 36e5, status: 'pending' },
     { id: 'w2', name: 'آزاد كريم', who: 'كابتن', amount: 520000, method: 'كي كارد', at: Date.now() - 9 * 36e5, status: 'pending' },
@@ -303,6 +332,8 @@ function load(): Persisted {
       if (merged.packages.filter((p) => p.createdAt === 0).every((p) => p.date < todayIso())) {
         merged.packages = [...seedPackages(todayIso()), ...merged.packages.filter((p) => p.createdAt !== 0)];
       }
+      // Garages the admin added live with the built-in ones.
+      for (const g of merged.extraGarages) if (!GARAGES.some((x) => x.id === g.id)) GARAGES.push(g);
       return merged;
     }
   } catch {
@@ -528,13 +559,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return { ...d, bookings: [b, ...d.bookings], points: d.points + Math.round(b.total / 1000), notifications: [n, ...d.notifications] };
         }),
       cancelBooking: (code) => setData((d) => ({ ...d, bookings: d.bookings.map((b) => (b.code === code ? { ...b, status: 'cancelled', cancelledBy: 'me' } : b)) })),
-      notify: (n, to = 'passenger') =>
+      notify: (n, to = 'passenger') => {
+        // With notifications on, the phone shows it too (only once the user has allowed them).
+        if (data.notifOn) void phoneNotify(n.title, n.body, 600, false);
         setData((d) => {
           const item: Notif = { ...n, id: 'n' + Date.now() + Math.random().toString(36).slice(2, 6), at: Date.now(), read: false };
           return to === 'captain'
             ? { ...d, captainNotifs: [item, ...d.captainNotifs].slice(0, 60) }
             : { ...d, notifications: [item, ...d.notifications].slice(0, 60) };
-        }),
+        });
+      },
       markAllRead: (as = 'passenger') =>
         setData((d) => (as === 'captain'
           ? { ...d, captainNotifs: d.captainNotifs.map((x) => ({ ...x, read: true })) }

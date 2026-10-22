@@ -8,6 +8,7 @@ const config: CapacitorConfig = {
   android: { allowMixedContent: false },
   plugins: {
     StatusBar: { overlaysWebView: false, backgroundColor: '#0B0558', style: 'DARK' },
+    LocalNotifications: { smallIcon: 'ic_stat_bdarbi', iconColor: '#0B0558' },
   },
 };
 

@@ -254,7 +254,8 @@ export function DriverProfile() {
     ['shield', 'سياسة الخصوصية والاستخدام', () => go('policy')],
     ['info', 'عن النسخة التجريبية', () => setAbout(true)],
     ['refresh', 'مسح بيانات التجربة', () => setWipe(true)],
-    ['chat', 'الدعم', () => go('support', { as: 'captain' })],
+    ['gear', 'الإعدادات', () => go('settings')],
+    ['chat', 'المساعدة والدعم', () => go('help')],
   ];
   return (
     <div className="screen">

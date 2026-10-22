@@ -743,3 +743,47 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .adm-quick .chip { flex-shrink: 0; }
 .adm-cards3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 .screen .adm-stats { grid-template-columns: 1fr 1fr; }
+
+/* Settings, help */
+.set-row { width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #ECEBF3; text-align: start; }
+.set-row .ic { width: 40px; height: 40px; border-radius: 12px; background: #EEEDF8; color: var(--navy); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.set-row .grow b { display: block; font-size: 15px; }
+.set-row .grow span { display: block; font-size: 12px; color: var(--slate); }
+.switch { width: 52px; height: 30px; border-radius: 999px; background: #D9D6E6; position: relative; flex-shrink: 0; transition: background .2s; }
+.switch i { position: absolute; top: 3px; right: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.18); transition: right .2s; }
+.switch.on { background: var(--success); }
+.switch.on i { right: 25px; }
+[dir=ltr] .switch i { right: auto; left: 3px; transition: left .2s; }
+[dir=ltr] .switch.on i { left: 25px; }
+.forgot-ic { width: 76px; height: 76px; border-radius: 24px; background: #EEEDF8; color: var(--navy); display: inline-flex; align-items: center; justify-content: center; }
+.help-hero { border-radius: 22px; background: var(--navy); color: #fff; padding: 18px; display: flex; flex-direction: column; gap: 4px; }
+.help-hero b { font-family: var(--display); font-size: 19px; }
+.help-hero span { font-size: 13px; opacity: .8; line-height: 1.7; }
+.faq { border-bottom: 1px solid #ECEBF3; }
+.faq:last-child { border-bottom: 0; }
+.faq button { width: 100%; min-height: 56px; display: flex; align-items: center; gap: 10px; text-align: right; font-size: 14px; }
+.faq-sign { width: 28px; height: 28px; border-radius: 50%; background: #EEEDF8; color: var(--navy); display: flex; align-items: center; justify-content: center; font-weight: 800; flex-shrink: 0; }
+.faq p { margin: -4px 0 14px; font-size: 13px; line-height: 1.8; color: var(--slate); }
+.chat-fab { position: absolute; left: 20px; bottom: calc(24px + var(--safe-bottom)); width: 62px; height: 62px; border-radius: 50%; background: var(--navy); color: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 26px rgba(11,5,88,.35); z-index: 15; }
+
+/* Dark mode: flip the colours of the whole app, but keep photos, maps and QR codes as they are */
+html.dark body { background: #000; }
+html.dark .app { filter: invert(0.92) hue-rotate(180deg); }
+html.dark .app img, html.dark .app video, html.dark .app .qr, html.dark .app .leaflet-container, html.dark .app .pkg-cover svg, html.dark .app .pkg-slide svg, html.dark .app .pkg-ticket-cover svg, html.dark .app canvas { filter: invert(1) hue-rotate(180deg); }
+
+/* Error states */
+.state-screen { background: #fff; }
+.state-body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: calc(30px + var(--safe-top)) 30px 20px; }
+.state-art { width: 132px; height: 132px; border-radius: 40px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.state-art img { height: 150px; margin-top: 30px; }
+.state-art.bad { background: var(--alert-bg); color: var(--alert); }
+.state-art.warn { background: #FFF3D6; color: #7A5300; }
+.state-art.info { background: #EEEDF8; color: var(--navy); }
+.offline-layer { position: absolute; inset: 0; z-index: 60; display: flex; }
+.offline-layer > .screen { width: 100%; }
+.tk-banner { width: 100%; }
+
+/* Admin: coupons, garages */
+.coupon-card { border-radius: 20px; background: #fff; border: 1.5px dashed #C9C3E3; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.pin-map { height: 320px; border-radius: 18px; overflow: hidden; border: 1.5px solid #E4E2EE; background: #EEEDF8; }
+.map-pin { width: 30px; height: 40px; background: var(--navy); border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 3px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,.3); }

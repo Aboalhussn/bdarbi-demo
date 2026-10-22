@@ -80,7 +80,7 @@ function CaptainHome() {
   };
   const cancel = () => {
     setTrip({ status: 'cancelled' });
-    if (hasPassenger) notify({ icon: 'x', tone: 'bad', title: 'انلغت رحلتك', body: `الكابتن ألغى رحلة ${route} (${reason}). فلوسك ترجعلك كاملة.`, link: { name: 'ticket', params: { code: myCode } } });
+    if (hasPassenger) notify({ icon: 'x', tone: 'bad', title: 'انلغت رحلتك', body: `الكابتن ألغى رحلة ${route} (${reason}). فلوسك ترجعلك كاملة.`, link: { name: 'tripCancelled', params: { code: myCode } } });
     showToast('انلغت الرحلة ووصل إشعار للمسافرين');
     setSheet('');
   };

@@ -1,6 +1,7 @@
 # Builds the two Android apps on every push to main and publishes them as the newest GitHub Release:
 #   بدربي (passengers)                         https://github.com/Aboalhussn/bdarbi-demo/releases/latest/download/bdarbi-demo.apk
 #   كابتن بدربي (captains, offices and admin)   https://github.com/Aboalhussn/bdarbi-demo/releases/latest/download/bdarbi-partner.apk
+#   Admin website on a computer                  https://aboalhussn.github.io/bdarbi-demo/  (Pages source: gh-pages branch)
 name: Android APK
 
 on:
@@ -55,7 +56,9 @@ jobs:
 
       # 2) The partner app «كابتن بدربي»: same code, built in partner mode, with its own id and name
       - name: Build the partner app
-        run: npm run build:partner
+        run: |
+          npm run build:partner
+          cp -r dist web-admin
 
       - name: Give the partner app its own id and name
         run: |
@@ -69,6 +72,14 @@ jobs:
         run: ./gradlew assembleDebug --no-daemon --stacktrace
 
       - run: cp android/app/build/outputs/apk/debug/app-debug.apk bdarbi-partner.apk
+
+      # The same partner build is also a website, so the admin can work from a computer.
+      - name: Publish the admin website (GitHub Pages)
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./web-admin
+          force_orphan: true
 
       - uses: actions/upload-artifact@v4
         with:

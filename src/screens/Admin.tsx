@@ -1,11 +1,13 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { agencyManifest, findVehicle, span, vLabel } from '../agency';
-import { COUPONS, GARAGES, HOTELS, fmt12, longDate, money, todayIso, tripById } from '../data';
+import { HOTELS, fmt12, longDate, money, todayIso, tripById } from '../data';
 import { Icon, Logo } from '../icons';
 import { durationLabel } from '../packages';
 import { PkgArtSvg } from './Packages';
 import { seededManifest, useStore, type AdminRequest, type ChatMsg } from '../store';
 import { Sheet, Time } from '../ui';
+import { formatPhone } from './Welcome';
+import { AdminCoupons, AdminGarages } from './AdminManage';
 
 /** iPad (and any wide screen) gets the website layout; a phone gets the app layout. */
 function useWide() {
@@ -57,7 +59,11 @@ function useAdminData() {
     ? [{ id: 'device', name: s.captain.name, phone: s.captain.phone.replace(/\s/g, ''), kind: 'captain', detail: `${s.captain.vehicle.kind} ${s.captain.vehicle.seats}`, at: s.captain.submittedAt, status: 'pending', fromDevice: true,
         info: [['السيارة', `${s.captain.vehicle.model} ${s.captain.vehicle.year} · ${s.captain.vehicle.color}`], ['اللوحة', s.captain.vehicle.plate], ...Object.values(s.captain.docInfo ?? {}).flat().slice(0, 4)] }]
     : [];
-  const requests = [...deviceReq, ...s.adminRequests];
+  const officeReq: AdminRequest[] = s.officeSignup && s.officeSignup.status === 'pending'
+    ? [{ id: 'device-office', name: s.officeSignup.name, phone: s.officeSignup.phone.replace(/\s/g, ''), kind: 'office', detail: s.officeSignup.fleet, at: s.officeSignup.submittedAt, status: 'pending', fromDevice: true,
+        info: [['المدير', s.officeSignup.manager], ['المحافظة', s.officeSignup.city], ['العنوان', s.officeSignup.address], ['المركبات', s.officeSignup.fleet]] }]
+    : [];
+  const requests = [...officeReq, ...deviceReq, ...s.adminRequests];
   const pendingReqs = requests.filter((r) => r.status === 'pending');
   // Live support chats from this phone's captain / office, plus the seeded passenger chats.
   const live = ([['captain', 'الكابتن (هذا التلفون)', 'كابتن'], ['agency', s.agencyInfo.name, 'مكتب']] as const)
@@ -159,9 +165,9 @@ function Content({ section, id, wide, open }: { section: Section; id?: string; w
     case 'bookings': return <Bookings wide={wide} />;
     case 'packages': return <Packages wide={wide} />;
     case 'goals': return <Goals wide={wide} />;
-    case 'garages': return <SimpleList wide={wide} title="الكراجات" rows={GARAGES.map((g) => [g.name, `${g.city} · ${g.address}`, g.hours])} />;
+    case 'garages': return <AdminGarages wide={wide} Head={Head} />;
     case 'hotels': return <SimpleList wide={wide} title="الفنادق" rows={HOTELS.map((h) => [h.name, `${h.city} · ${h.near}`, `★ ${h.rating} · من ${money(h.from)}`])} />;
-    case 'coupons': return <SimpleList wide={wide} title="الكوبونات" rows={Object.entries(COUPONS).map(([k, c]) => [k, c.label, 'فعّال'])} />;
+    case 'coupons': return <AdminCoupons wide={wide} Head={Head} />;
     case 'more': return <More />;
     default: return <Overview wide={wide} open={open} />;
   }
@@ -223,7 +229,6 @@ function Overview({ wide, open }: { wide: boolean; open: (s: Section, sub?: stri
         <div className="pad stack gap10" style={{ marginTop: 16 }}>
           <h2 className="h3">يحتاج انتباهك</h2>
           {attentionList}
-          <AdminLogout />
         </div>
       </>
     );
@@ -284,7 +289,7 @@ function AdminLogout() {
 /* ---------------- join requests ---------------- */
 
 function Requests({ id, wide, open }: { id?: string; wide: boolean; open: (s: Section, sub?: string) => void }) {
-  const { set, adminRequests, captain, notify, showToast } = useStore();
+  const { set, adminRequests, captain, officeSignup, notify, showToast } = useStore();
   const { requests } = useAdminData();
   const [tab, setTab] = useState<'pending' | 'done'>('pending');
   const [rejecting, setRejecting] = useState(false);
@@ -293,7 +298,11 @@ function Requests({ id, wide, open }: { id?: string; wide: boolean; open: (s: Se
   const sel = requests.find((r) => r.id === id) ?? (wide ? list[0] : undefined);
 
   const decide = (r: AdminRequest, status: 'approved' | 'rejected') => {
-    if (r.fromDevice && captain) {
+    if (r.id === 'device-office' && officeSignup) {
+      // The office that signed up on this phone: approval opens its account.
+      if (status === 'approved') set({ officeSignup: { ...officeSignup, status: 'approved' }, agencyInfo: { name: officeSignup.name, phone: formatPhone(officeSignup.phone), email: '', address: `${officeSignup.city}، ${officeSignup.address}`, logo: '' } });
+      else set({ officeSignup: null });
+    } else if (r.fromDevice && captain) {
       // The captain on this phone: approval opens his account.
       if (status === 'approved') {
         set({ captain: { ...captain, status: 'approved' } });
@@ -326,7 +335,7 @@ function Requests({ id, wide, open }: { id?: string; wide: boolean; open: (s: Se
     </div>
   );
 
-  const docs = sel?.fromDevice ? captain?.docs ?? {} : {};
+  const docs = sel?.id === 'device-office' ? officeSignup?.docs ?? {} : sel?.fromDevice ? captain?.docs ?? {} : {};
   const detail = sel ? (
     <div className="stack gap14">
       <div className="row gap12">
@@ -337,7 +346,7 @@ function Requests({ id, wide, open }: { id?: string; wide: boolean; open: (s: Se
         <h3 className="h3" style={{ marginBottom: 10 }}>المستمسكات</h3>
         <div className="adm-docs">
           {(sel.kind === 'office' ? ['إجازة الشركة', 'هوية المدير', 'عقد الإيجار', 'سنويات المركبات'] : ['الإجازة · وجه', 'الإجازة · ظهر', 'السنوية · وجه', 'السنوية · ظهر']).map((l, i) => {
-            const key = ['licenseFront', 'licenseBack', 'annualFront', 'annualBack'][i];
+            const key = (sel.kind === 'office' ? ['license', 'managerId', 'lease', 'annuals'] : ['licenseFront', 'licenseBack', 'annualFront', 'annualBack'])[i];
             return (
               <div key={l} className="adm-doc">
                 {docs[key] ? <img src={docs[key]} alt={l} /> : <div className="adm-doc-ph"><i /><em /><em style={{ width: '50%' }} /></div>}

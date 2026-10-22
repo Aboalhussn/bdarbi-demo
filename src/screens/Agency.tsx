@@ -438,7 +438,8 @@ export function AgencyProfile() {
     ['shield', 'سياسة الخصوصية والاستخدام', () => go('policy')],
     ['info', 'عن النسخة التجريبية', () => setAbout(true)],
     ['refresh', 'مسح بيانات التجربة', () => setWipe(true)],
-    ['chat', 'الدعم', () => go('support', { as: 'agency' })],
+    ['gear', 'الإعدادات', () => go('settings')],
+    ['chat', 'المساعدة والدعم', () => go('help')],
   ];
   return (
     <div className="screen">

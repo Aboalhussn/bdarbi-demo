@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
-import { COUPONS, fmt12, garageById, longDate, money, newCode, todayIso, tripById, type Trip } from '../data';
+import { fmt12, garageById, longDate, money, newCode, todayIso, tripById, type Trip } from '../data';
 import { Icon } from '../icons';
 import { ticketPayload, tripOf, useStore, type Booking } from '../store';
 import { QR, Sheet, TabBar, Time, TopBar } from '../ui';
 import { Avatar } from './Account';
 import { renderTicket, saveTicketImage } from '../ticketImage';
 import { liveOf } from '../live';
+import { resolveCoupon } from '../coupons';
 import { PkgArtSvg } from './Packages';
 
 function addMin(hhmm: string, m: number) {
@@ -171,7 +172,7 @@ const BASE_PAYMENTS = [
 ];
 
 export function Checkout() {
-  const { route, name, phone, addBooking, reset, go, usedCoupons, set, bookings, card, gender } = useStore();
+  const { route, name, phone, addBooking, reset, go, usedCoupons, set, bookings, card, gender, adminCoupons } = useStore();
   const PAYMENTS = [
     ...BASE_PAYMENTS,
     card
@@ -199,15 +200,15 @@ export function Checkout() {
   if (!trip || !seats.length) return <Missing />;
   const garage = garageById(trip.garageId);
   const subtotal = trip.price * seats.length;
-  const discount = applied ? COUPONS[applied].apply(subtotal) : 0;
+  const couponInfo = applied ? resolveCoupon(applied, { bookings, phone, used: [], admin: adminCoupons, today: todayIso() }) : null;
+  const discount = couponInfo && couponInfo.ok ? couponInfo.apply(subtotal) : 0;
   const total = subtotal - discount;
 
   const apply = () => {
     const c = coupon.trim().toUpperCase();
     if (!c) return;
-    if (!COUPONS[c]) return setCErr('هذا الكوبون مو صحيح');
-    if (usedCoupons.includes(c)) return setCErr('استخدمت هذا الكوبون قبل');
-    if (c === 'WELCOME' && bookings.length > 0) return setCErr('WELCOME بس لأول حجز');
+    const r = resolveCoupon(c, { bookings, phone, used: usedCoupons, admin: adminCoupons, today: todayIso() });
+    if (!r.ok) return setCErr(r.error);
     setApplied(c);
     setCErr('');
   };
@@ -232,8 +233,8 @@ export function Checkout() {
     }
     // Seats could have been taken meanwhile — check again before booking.
     const taken = takenSeats(trip, date, bookings);
-    if (seats.some((s) => taken.has(s))) {
-      setNErr('واحد من المقاعد انحجز هسه، ارجع واختار غيره.');
+    if (seats.some((s) => taken.has(s)) || route.params?.simulateTaken) {
+      go('seatTaken', { tripId: trip.id, date, seats });
       return;
     }
     const draft: Omit<Booking, 'code' | 'createdAt'> = {
@@ -341,7 +342,7 @@ export function Checkout() {
               <button className="btn sm" style={{ width: 96 }} onClick={apply}>تطبيق</button>
             )}
           </div>
-          <div className={cErr ? 'err' : 'small'} style={{ color: applied ? 'var(--success)' : undefined, fontWeight: 600 }}>{cErr || (applied ? `✓ ${COUPONS[applied].label}` : 'جرّب: WELCOME أو EID2026')}</div>
+          <div className={cErr ? 'err' : 'small'} style={{ color: applied ? 'var(--success)' : undefined, fontWeight: 600 }}>{cErr || (couponInfo && couponInfo.ok ? `✓ ${couponInfo.label}` : 'جرّب: WELCOME أو EID2026')}</div>
         </div>
 
         <div className="card flat stack gap6">
@@ -411,7 +412,9 @@ export function Ticket() {
 
         <div className="ticket tk-card">
           {boarded ? <div className="tk-banner ok">صعدت ✓ <span className="num" style={{ fontWeight: 600 }}><Time v={boarded} /></span> — رحلة سعيدة!</div> : null}
-          {cancelled ? <div className="tk-banner bad">{b.cancelledBy === 'captain' ? 'الكابتن ألغى الرحلة — فلوسك ترجعلك كاملة' : 'هذا الحجز ملغي'}</div> : null}
+          {cancelled ? (b.cancelledBy === 'captain'
+            ? <button className="tk-banner bad" onClick={() => go('tripCancelled', { code: b.code })}>الكابتن ألغى الرحلة — فلوسك ترجعلك كاملة · شوف البدائل</button>
+            : <div className="tk-banner bad">هذا الحجز ملغي</div>) : null}
           {!cancelled && lv.delay > 0 && lv.status === 'scheduled' ? <div className="tk-banner warn">تأخرت الرحلة {lv.delay} دقيقة · الانطلاق الجديد <span className="num">{fmt12(addMin(trip.time, lv.delay))}</span></div> : null}
           {!cancelled && lv.status === 'started' ? <div className="tk-banner info">الباص بالطريق هسه 🚌</div> : null}
           <div className="tk-top">
@@ -561,7 +564,8 @@ export function Profile() {
     ['shield', 'سياسة الخصوصية والاستخدام', () => go('policy')],
     ['info', 'عن النسخة التجريبية', () => setAbout(true)],
     ['refresh', 'مسح بيانات التجربة', () => setWipe(true)],
-    ['chat', 'الدعم', () => go('support', { as: 'passenger' })],
+    ['gear', 'الإعدادات', () => go('settings')],
+    ['chat', 'المساعدة والدعم', () => go('help')],
   ];
   return (
     <div className="screen">

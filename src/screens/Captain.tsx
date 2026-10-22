@@ -4,7 +4,7 @@ import { Icon } from '../icons';
 import { useStore } from '../store';
 import { Sheet, TopBar, openExternal } from '../ui';
 import { PASS_RULES, PasswordMeter, shrinkImage } from './Account';
-import { PhoneField, phoneError } from './Welcome';
+import { OtpOverlay, PhoneField, phoneError } from './Welcome';
 
 // ---------------------------------------------------------------------------
 // Documents are scanned one after the other, front then back.
@@ -163,6 +163,8 @@ export function CaptainRegister() {
   const { set, reset, back, showToast } = useStore();
   const [step, setStep] = useState(1);
   const [err, setErr] = useState('');
+  const [verifying, setVerifying] = useState(false);
+  const [verified, setVerified] = useState('');
   // step 1
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -224,6 +226,12 @@ export function CaptainRegister() {
       if (pe) return setErr(pe);
       if (!strong) return setErr('الرمز لازم يكون قوي (4 خطوط خضر)');
       if (pass !== pass2) return setErr('الرمزين مو نفس الشي');
+      // Confirm the number before going on to the vehicle and documents.
+      if (verified !== phone) {
+        setErr('');
+        setVerifying(true);
+        return;
+      }
     }
     if (step === 2) {
       if (model.trim().length < 2) return setErr('اكتب اسم السيارة والموديل');
@@ -252,6 +260,10 @@ export function CaptainRegister() {
     setErr('');
     setStep(step + 1);
   };
+
+  if (verifying) {
+    return <OtpOverlay phone={phone} onBack={() => setVerifying(false)} note="نتأكد إن الرقم إلك قبل ما تكمّل." onDone={() => { setVerified(phone); setVerifying(false); setStep(2); showToast('تأكد رقمك ✓'); }} />;
+  }
 
   return (
     <div className="screen gray">
