@@ -149,7 +149,7 @@ export function Help() {
           <span>دوّر بالأسئلة الشائعة، أو بلّغ عن مشكلة، أو راسلنا من الزر الدائري.</span>
         </div>
         {!IS_PARTNER ? (
-          <button className="list-item" style={{ background: '#fff', borderRadius: 18, padding: '10px 12px' }} onClick={() => setReport(true)}>
+          <button className="list-item" style={{ background: 'var(--card)', borderRadius: 18, padding: '10px 12px' }} onClick={() => setReport(true)}>
             <span className="ic" style={{ background: 'var(--alert-bg)', color: 'var(--alert)' }}><Icon name="flag" size={20} /></span>
             <span className="grow"><b style={{ display: 'block' }}>بلّغ عن مشكلة بالرحلة</b><span className="tiny muted">تأخير، غرض ضايع، دفع، أو تعامل</span></span>
             <Icon name="forward" size={18} />

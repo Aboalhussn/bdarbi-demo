@@ -1,0 +1,51 @@
+/* Dark mode: hand-tuned parts that the generated dark.css can't guess.
+   Photos, the flag, the mascot, maps and QR codes keep their real colours. */
+html.dark {
+  color-scheme: dark;
+  --navy: #A79BFF;          /* navy used as text/icon colour → light violet */
+  --hero: #1B1653;
+  --primary: #7B6CF6;
+  --tint: #201C3B;
+  --page: #0F0D1E;
+  --ink: #EEEDF7;
+  --ink2: #CFCBE6;
+  --card: #17142B;
+  --slate: #A29EC0;
+  --mist: #3A3566;
+  --lavender: #3A3470;
+  --surface: #201C3B;
+  --line: #2C2850;
+  --success: #5AD49F;
+  --success-bg: #123526;
+  --alert: #FF8A9A;
+  --alert-bg: #3A1622;
+  --bad: #FF8A9A;
+  --warn-fg: #F5C761;
+  --warn-bg: #3A2C0E;
+  --booked: #2E2A4A;
+  --lady: #3A1622;
+  --lady-fg: #FF8A9A;
+}
+html.dark body { background: #0F0D1E; }
+
+/* Inputs sit a step above the page so they read as fields */
+html.dark .input, html.dark .phone { background: #17142B; }
+html.dark .input:focus, html.dark .phone:focus-within { background: #201C3B; }
+html.dark input::placeholder, html.dark textarea::placeholder { color: #6E6A8C; }
+
+/* Floating tab bar: dark glass, the chosen tab is a light pill */
+html.dark .tabbar nav { background: rgba(30,26,64,.92); border-color: #2C2850; box-shadow: 0 12px 32px rgba(0,0,0,.45); }
+html.dark .tabbar button.on { background: #EEEDF7; color: #17124A; }
+html.dark .tabbar button.plus-tab { background: #F5B83D; color: #2A1A00; }
+
+/* Things that must stay white: QR tiles, the map pin ring */
+html.dark .qr, html.dark .qr svg { background: #FFFFFF !important; }
+html.dark .map-pin { border-color: #FFFFFF; }
+
+/* Softer shadows tinted for a dark page */
+html.dark .card, html.dark .sheet { box-shadow: none; }
+html.dark .chat-fab { box-shadow: 0 10px 26px rgba(0,0,0,.5); }
+
+/* Leaflet controls and tooltips */
+html.dark .leaflet-tooltip { background: #17142B; color: #EEEDF7; border-color: #2C2850; }
+html.dark .leaflet-tooltip-top::before { border-top-color: #17142B; }

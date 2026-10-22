@@ -177,7 +177,7 @@ export function Pay() {
         ) : (
           <div className="form-card" style={{ gap: 12 }}>
             <div className="row gap10">
-              <span className="zc-badge" style={{ background: '#E6F4EC', color: 'var(--success)' }}><Icon name="lock" size={18} /></span>
+              <span className="zc-badge" style={{ background: 'var(--success-bg)', color: 'var(--success)' }}><Icon name="lock" size={18} /></span>
               <div className="grow"><b>رمز التأكيد</b><div className="tiny muted">دزينا رمز من 6 أرقام إلى {method === 'zain' ? <span className="num" dir="ltr">0{wallet.replace(/\s/g, '')}</span> : 'رقمك المسجّل بالبنك'}</div></div>
             </div>
             <input

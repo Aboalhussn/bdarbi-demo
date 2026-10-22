@@ -120,10 +120,10 @@ export default function App() {
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
     const navy = NAVY_TOP.has(route.name);
-    const color = route.name === 'driverScan' ? '#000000' : navy ? '#0B0558' : route.name === 'hotel' ? '#DCD8EE' : '#FFFFFF';
+    const color = route.name === 'driverScan' ? '#000000' : navy ? (dark ? '#1B1653' : '#0B0558') : dark ? '#0F0D1E' : route.name === 'hotel' ? '#DCD8EE' : '#FFFFFF';
     void StatusBar.setBackgroundColor({ color }).catch(() => undefined);
-    void StatusBar.setStyle({ style: navy ? Style.Dark : Style.Light }).catch(() => undefined);
-  }, [route.name]);
+    void StatusBar.setStyle({ style: navy || dark ? Style.Dark : Style.Light }).catch(() => undefined);
+  }, [route.name, dark]);
 
   // No internet: the real event, or the demo button in settings.
   const [offline, setOffline] = useState(() => typeof navigator !== 'undefined' && navigator.onLine === false);

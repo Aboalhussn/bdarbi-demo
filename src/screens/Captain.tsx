@@ -278,23 +278,23 @@ export function CaptainRegister() {
       <div className="scroll pad stack gap14" style={{ paddingTop: 14, paddingBottom: 20 }}>
         {step === 1 ? (
           <>
-            <div className="card row gap12" style={{ background: '#EEEDF8', border: 0 }}>
+            <div className="card row gap12" style={{ background: 'var(--tint)', border: 0 }}>
               <img src="./img/driver.png" alt="" style={{ height: 70 }} />
               <div className="small" style={{ lineHeight: 1.7 }}>اشتغل ويا <b>كابتن بدربي</b>: انشر رحلاتك، واستلم حجوزات، وامسح تذاكر الركاب من تلفونك.</div>
             </div>
             <div className="field">
               <label htmlFor="cname">الاسم الثلاثي</label>
-              <input id="cname" className="input" style={{ background: '#fff' }} value={name} placeholder="مثل ما مكتوب بإجازة السوق" onChange={(e) => { setName(e.target.value); setErr(''); }} />
+              <input id="cname" className="input" style={{ background: 'var(--card)' }} value={name} placeholder="مثل ما مكتوب بإجازة السوق" onChange={(e) => { setName(e.target.value); setErr(''); }} />
             </div>
             <PhoneField value={phone} onChange={(v) => { setPhone(v); setErr(''); }} />
             <div className="field">
               <label htmlFor="cpass">الرمز</label>
-              <input id="cpass" type="password" dir="ltr" className="input" style={{ background: '#fff' }} value={pass} onChange={(e) => { setPass(e.target.value); setErr(''); }} />
+              <input id="cpass" type="password" dir="ltr" className="input" style={{ background: 'var(--card)' }} value={pass} onChange={(e) => { setPass(e.target.value); setErr(''); }} />
             </div>
             <PasswordMeter value={pass} />
             <div className="field">
               <label htmlFor="cpass2">أكّد الرمز</label>
-              <input id="cpass2" type="password" dir="ltr" className={`input ${pass2 && pass2 !== pass ? 'bad' : ''}`} style={{ background: '#fff' }} value={pass2} onChange={(e) => { setPass2(e.target.value); setErr(''); }} />
+              <input id="cpass2" type="password" dir="ltr" className={`input ${pass2 && pass2 !== pass ? 'bad' : ''}`} style={{ background: 'var(--card)' }} value={pass2} onChange={(e) => { setPass2(e.target.value); setErr(''); }} />
             </div>
           </>
         ) : null}
@@ -312,7 +312,7 @@ export function CaptainRegister() {
             </section>
             <div className="field">
               <label htmlFor="cmodel">اسم السيارة والموديل</label>
-              <input id="cmodel" className="input" style={{ background: '#fff', height: 50, borderRadius: 14 }} value={model} placeholder="مثلاً: تويوتا كوستر" onChange={(e) => { setModel(e.target.value); setErr(''); }} />
+              <input id="cmodel" className="input" style={{ background: 'var(--card)', height: 50, borderRadius: 14 }} value={model} placeholder="مثلاً: تويوتا كوستر" onChange={(e) => { setModel(e.target.value); setErr(''); }} />
             </div>
             <div className="field">
               <label htmlFor="cyear">سنة الإصدار</label>
@@ -328,7 +328,7 @@ export function CaptainRegister() {
                 />
                 <span><Icon name={yearOk ? 'check' : yearDone ? 'info' : 'calendar'} size={20} stroke={yearOk ? 3 : 2} /></span>
               </div>
-              <div className="tiny bold" style={{ color: !yearDone ? 'var(--slate)' : yearOk ? 'var(--success)' : '#B23A4C' }}>
+              <div className="tiny bold" style={{ color: !yearDone ? 'var(--slate)' : yearOk ? 'var(--success)' : 'var(--bad)' }}>
                 {!year ? 'اكتب السنة بأربع أرقام، مثل 2019' : !yearDone ? 'كمّل السنة (4 أرقام)' : yearOk ? 'تمام' : `السنة لازم تكون بين ${YEAR_MIN} و ${YEAR_MAX}`}
               </div>
             </div>
@@ -364,8 +364,8 @@ export function CaptainRegister() {
 
         {step === 3 ? (
           <>
-            <div className="card row gap12" style={{ background: '#EEEDF8', border: 0 }}>
-              <span className="df-ic" style={{ background: '#fff' }}><Icon name="scan" size={22} /></span>
+            <div className="card row gap12" style={{ background: 'var(--tint)', border: 0 }}>
+              <span className="df-ic" style={{ background: 'var(--card)' }}><Icon name="scan" size={22} /></span>
               <div className="small" style={{ lineHeight: 1.7 }}>راح نصوّر <b>4 صور</b> وحدة ورا الثانية: وجه الإجازة وظهرها، وبعدها وجه السنوية وظهرها. التطبيق يقرأ المعلومات منها وانت تأكدها.</div>
             </div>
             <div className="doc-list">
@@ -384,7 +384,7 @@ export function CaptainRegister() {
             </div>
             {allDocs ? (
               <button className="row gap10" style={{ textAlign: 'right', padding: '6px 0' }} onClick={() => { setAgree(!agree); setErr(''); }}>
-                <span style={{ width: 24, height: 24, borderRadius: 7, border: '2px solid var(--navy)', background: agree ? 'var(--navy)' : 'transparent', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <span style={{ width: 24, height: 24, borderRadius: 7, border: '2px solid var(--primary)', background: agree ? 'var(--primary)' : 'transparent', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   {agree && <Icon name="check" size={16} stroke={3} />}
                 </span>
                 <span className="small">أأكد إن المعلومات صحيحة. بعد التثبيت ما أكدر أغيّر السيارة إلا عن طريق الدعم.</span>
@@ -593,7 +593,7 @@ export function VehicleFields({ value: v, onChange }: { value: VehicleDraft; onC
       </section>
       <div className="field">
         <label htmlFor="vmodel">اسم السيارة والموديل</label>
-        <input id="vmodel" className="input" style={{ background: '#fff', height: 50, borderRadius: 14 }} value={v.model} placeholder="مثلاً: تويوتا كوستر" onChange={(e) => up({ model: e.target.value })} />
+        <input id="vmodel" className="input" style={{ background: 'var(--card)', height: 50, borderRadius: 14 }} value={v.model} placeholder="مثلاً: تويوتا كوستر" onChange={(e) => up({ model: e.target.value })} />
       </div>
       <div className="field">
         <label htmlFor="vyear">سنة الإصدار</label>
@@ -601,7 +601,7 @@ export function VehicleFields({ value: v, onChange }: { value: VehicleDraft; onC
           <input id="vyear" inputMode="numeric" maxLength={4} dir="ltr" placeholder="2019" value={v.year} onChange={(e) => up({ year: e.target.value.replace(/[٠-٩]/g, (c) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(c))).replace(/\D/g, '').slice(0, 4) })} />
           <span><Icon name={yearOk ? 'check' : yearDone ? 'info' : 'calendar'} size={20} stroke={yearOk ? 3 : 2} /></span>
         </div>
-        <div className="tiny bold" style={{ color: !yearDone ? 'var(--slate)' : yearOk ? 'var(--success)' : '#B23A4C' }}>
+        <div className="tiny bold" style={{ color: !yearDone ? 'var(--slate)' : yearOk ? 'var(--success)' : 'var(--bad)' }}>
           {!v.year ? 'اكتب السنة بأربع أرقام، مثل 2019' : !yearDone ? 'كمّل السنة (4 أرقام)' : yearOk ? 'تمام' : `السنة لازم تكون بين ${YEAR_MIN} و ${YEAR_MAX}`}
         </div>
       </div>

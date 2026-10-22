@@ -28,6 +28,18 @@
   --success-bg: #E6F4EC;
   --alert: #9E2F41;
   --alert-bg: #FBE3E7;
+  --hero: #0B0558;
+  --primary: #0B0558;
+  --tint: #EEEDF8;
+  --page: #F7F6FA;
+  --bad: #B23A4C;
+  --warn-fg: #7A5200;
+  --warn-bg: #FDF1D6;
+  --booked: #DCDAE6;
+  --lady: #F7D9DE;
+  --lady-fg: #8C2A3C;
+  --ink2: #3A3755;
+  --card: #FFFFFF;
   --display: 'Alexandria', 'IBM Plex Sans Arabic', sans-serif;
   --text: 'IBM Plex Sans Arabic', sans-serif;
   --safe-top: env(safe-area-inset-top, 0px);
@@ -765,11 +777,6 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .faq-sign { width: 28px; height: 28px; border-radius: 50%; background: #EEEDF8; color: var(--navy); display: flex; align-items: center; justify-content: center; font-weight: 800; flex-shrink: 0; }
 .faq p { margin: -4px 0 14px; font-size: 13px; line-height: 1.8; color: var(--slate); }
 .chat-fab { position: absolute; left: 20px; bottom: calc(24px + var(--safe-bottom)); width: 62px; height: 62px; border-radius: 50%; background: var(--navy); color: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 26px rgba(11,5,88,.35); z-index: 15; }
-
-/* Dark mode: flip the colours of the whole app, but keep photos, maps and QR codes as they are */
-html.dark body { background: #000; }
-html.dark .app { filter: invert(0.92) hue-rotate(180deg); }
-html.dark .app img, html.dark .app video, html.dark .app .qr, html.dark .app .leaflet-container, html.dark .app .pkg-cover svg, html.dark .app .pkg-slide svg, html.dark .app .pkg-ticket-cover svg, html.dark .app canvas { filter: invert(1) hue-rotate(180deg); }
 
 /* Error states */
 .state-screen { background: #fff; }

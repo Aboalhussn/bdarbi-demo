@@ -53,7 +53,7 @@ export function Home() {
         <button onClick={() => go('rewards')} style={{ display: 'block', position: 'relative', height: 214, margin: '22px 20px 0', width: 'calc(100% - 40px)', textAlign: 'right' }}>
           <div style={{ position: 'absolute', top: 0, right: 34, left: 34, height: 40, borderRadius: 18, background: 'var(--mist)' }} />
           <div style={{ position: 'absolute', top: 14, right: 16, left: 16, height: 40, borderRadius: 18, background: 'var(--lavender)' }} />
-          <div style={{ position: 'absolute', top: 28, right: 0, left: 0, bottom: 0, borderRadius: 24, background: 'var(--navy)', color: '#fff', padding: '20px 20px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ position: 'absolute', top: 28, right: 0, left: 0, bottom: 0, borderRadius: 24, background: 'var(--hero)', color: '#fff', padding: '20px 20px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div className="row" style={{ justifyContent: 'space-between' }}>
               <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 20 }}>المكافأة بالطريق!!</div>
               <span className="pill gold"><span className="num">{points}</span>&nbsp;نقطة</span>
@@ -97,7 +97,7 @@ export function Home() {
 
         {upcoming ? (
           <button className="card row gap14" style={{ margin: '22px 20px 0', width: 'calc(100% - 40px)', textAlign: 'right' }} onClick={() => go('ticket', { code: upcoming.code })}>
-            <div style={{ width: 50, height: 50, borderRadius: 15, background: '#EEEDF8', color: 'var(--navy)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <div style={{ width: 50, height: 50, borderRadius: 15, background: 'var(--tint)', color: 'var(--navy)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <Icon name="ticket" size={26} />
             </div>
             <div className="grow">
@@ -139,7 +139,7 @@ export function Home() {
           </button>
         </div>
 
-        <div style={{ margin: '22px 20px 0', minHeight: 190, borderRadius: 24, background: 'var(--navy)', overflow: 'hidden', color: '#fff', position: 'relative' }}>
+        <div style={{ margin: '22px 20px 0', minHeight: 190, borderRadius: 24, background: 'var(--hero)', overflow: 'hidden', color: '#fff', position: 'relative' }}>
           <div style={{ position: 'absolute', top: 24, right: 22, width: '52%', fontFamily: 'var(--display)', fontWeight: 700, fontSize: 20, lineHeight: 1.5 }}>تكدر تحجز الفندق وانت بعدك بالبيت!!</div>
           <button className="btn light sm" style={{ position: 'absolute', bottom: 22, right: 22, width: 120 }} onClick={() => go('hotels')}>أحجز</button>
           <img src="./img/hotel.png" alt="" style={{ position: 'absolute', left: 6, bottom: 0, width: '40%', maxWidth: 180 }} />
@@ -254,7 +254,7 @@ export function Trips() {
                   <span>·</span><span>{t.kind}</span>
                   <span>·</span><span>{garageById(t.garageId).name}</span>
                   <span className="grow" />
-                  <span className="bold" style={{ color: gone ? 'var(--slate)' : tag.cls === 'bad' ? '#B23A4C' : 'var(--success)' }}>{gone ? 'انطلقت' : tag.text}</span>
+                  <span className="bold" style={{ color: gone ? 'var(--slate)' : tag.cls === 'bad' ? 'var(--bad)' : 'var(--success)' }}>{gone ? 'انطلقت' : tag.text}</span>
                 </div>
               </button>
             );
@@ -437,7 +437,7 @@ export function Garages() {
       <div className="scroll pad stack gap10" style={{ paddingBottom: 30 }}>
         {list.map(({ g, d }) => (
           <button key={g.id} className="card row gap12" style={{ textAlign: 'right', borderColor: g.id === garageId ? 'var(--navy)' : undefined }} onClick={() => setOpen(g)}>
-            <div style={{ width: 48, height: 48, borderRadius: 15, background: g.id === garageId ? 'var(--navy)' : '#EEEDF8', color: g.id === garageId ? '#fff' : 'var(--navy)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <div style={{ width: 48, height: 48, borderRadius: 15, background: g.id === garageId ? 'var(--primary)' : 'var(--tint)', color: g.id === garageId ? '#fff' : 'var(--navy)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <Icon name="pin" size={24} />
             </div>
             <div className="grow">
@@ -522,7 +522,7 @@ export function Rewards() {
     <div className="screen">
       <TopBar title="المكافآت" />
       <div className="scroll pad stack gap14" style={{ paddingBottom: 30 }}>
-        <div className="card" style={{ background: 'var(--navy)', color: '#fff', border: 0, padding: 20 }}>
+        <div className="card" style={{ background: 'var(--hero)', color: '#fff', border: 0, padding: 20 }}>
           <div className="small" style={{ opacity: 0.8 }}>نقاطك</div>
           <div className="num" style={{ fontSize: 40, fontWeight: 800 }}>{points}</div>
           <div className="small" style={{ opacity: 0.8 }}>كل 1,000 دينار تدفعها = نقطة. النقاط تنضاف بعد كل حجز.</div>
@@ -530,7 +530,7 @@ export function Rewards() {
         <h2 className="h3">بدّل نقاطك</h2>
         {items.map((i) => (
           <div key={i.t} className="card row gap12">
-            <div style={{ width: 46, height: 46, borderRadius: 14, background: '#FDF1D6', color: '#7A5200', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="gift" size={24} /></div>
+            <div style={{ width: 46, height: 46, borderRadius: 14, background: 'var(--warn-bg)', color: 'var(--warn-fg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="gift" size={24} /></div>
             <div className="grow">
               <div className="bold">{i.t}</div>
               <div className="small muted">{i.note}</div>

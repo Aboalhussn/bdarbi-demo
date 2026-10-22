@@ -15,7 +15,7 @@ export function Hotels() {
       <TopBar title="الفنادق" sub="احجز غرفتك قبل لا توصل" />
       <div className="hscroll" style={{ paddingTop: 0 }}>
         {cities.map((c) => (
-          <button key={c} className={`chip ${c === city ? 'on' : ''}`} style={c === city ? undefined : { background: '#fff' }} onClick={() => setCity(c)}>{c}</button>
+          <button key={c} className={`chip ${c === city ? 'on' : ''}`} style={c === city ? undefined : { background: 'var(--card)' }} onClick={() => setCity(c)}>{c}</button>
         ))}
       </div>
       <div className="scroll pad stack gap12" style={{ paddingTop: 12, paddingBottom: 30 }}>
@@ -23,7 +23,7 @@ export function Hotels() {
           <button key={h.id} className="card" style={{ padding: 0, overflow: 'hidden', textAlign: 'right' }} onClick={() => go('hotel', { id: h.id })}>
             <div style={{ height: 150, background: h.tint, position: 'relative' }}>
               <img src="./img/hotel.png" alt="" style={{ position: 'absolute', left: '50%', bottom: 0, transform: 'translateX(-50%)', height: 140, width: 'auto' }} />
-              <span className="pill" style={{ position: 'absolute', top: 12, right: 12, background: 'var(--navy)', color: '#fff' }}>★ <span className="num">{h.rating}</span></span>
+              <span className="pill" style={{ position: 'absolute', top: 12, right: 12, background: 'var(--hero)', color: '#fff' }}>★ <span className="num">{h.rating}</span></span>
             </div>
             <div style={{ padding: '12px 16px 14px' }}>
               <div className="row" style={{ justifyContent: 'space-between' }}>
@@ -57,20 +57,20 @@ export function HotelDetails() {
       <div className="scroll" style={{ paddingBottom: 20 }}>
         <div style={{ height: 300, background: h.tint, position: 'relative', paddingTop: 'var(--safe-top)' }}>
           <img src="./img/hotel.png" alt={h.name} style={{ position: 'absolute', left: '50%', bottom: 26, transform: 'translateX(-50%)', width: 240, height: 'auto' }} />
-          <button className="iconbtn" aria-label="رجوع" onClick={back} style={{ position: 'absolute', top: 'calc(16px + var(--safe-top))', right: 20, background: '#fff' }}>
+          <button className="iconbtn" aria-label="رجوع" onClick={back} style={{ position: 'absolute', top: 'calc(16px + var(--safe-top))', right: 20, background: 'var(--card)' }}>
             <Icon name="back" size={20} />
           </button>
-          <button className="iconbtn" aria-label="أضف للمفضلة" onClick={() => setFav(!fav)} style={{ position: 'absolute', top: 'calc(16px + var(--safe-top))', left: 20, background: '#fff', color: '#C8455A' }}>
+          <button className="iconbtn" aria-label="أضف للمفضلة" onClick={() => setFav(!fav)} style={{ position: 'absolute', top: 'calc(16px + var(--safe-top))', left: 20, background: 'var(--card)', color: '#C8455A' }}>
             <Icon name="heart" size={20} fill={fav ? '#C8455A' : 'none'} />
           </button>
         </div>
-        <div style={{ marginTop: -28, position: 'relative', background: '#fff', borderRadius: '28px 28px 0 0', padding: '22px 20px 0' }}>
+        <div style={{ marginTop: -28, position: 'relative', background: 'var(--card)', borderRadius: '28px 28px 0 0', padding: '22px 20px 0' }}>
           <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
               <h1 className="h2" style={{ fontSize: 23 }}>{h.name}</h1>
               <div className="small muted row gap6"><Icon name="pin" size={14} /> {h.city} · {h.near}</div>
             </div>
-            <span className="pill" style={{ background: 'var(--navy)', color: '#fff', height: 32 }}><Stars rate={h.rating} /></span>
+            <span className="pill" style={{ background: 'var(--hero)', color: '#fff', height: 32 }}><Stars rate={h.rating} /></span>
           </div>
           <div className="row gap8" style={{ marginTop: 16 }}>
             {h.amenities.map((a) => (
@@ -145,7 +145,7 @@ export function Coaster() {
     <div className="screen">
       <TopBar title="كوستر خاص" sub="للعوائل والمجاميع والزيارات" />
       <div className="scroll pad stack gap14" style={{ paddingBottom: 20 }}>
-        <div className="card row gap12" style={{ background: '#EEEDF8', border: 0 }}>
+        <div className="card row gap12" style={{ background: 'var(--tint)', border: 0 }}>
           <img src="./img/driver.png" alt="" style={{ height: 84 }} />
           <div className="small" style={{ lineHeight: 1.7 }}>كوستر كامل الك ولجماعتك، يطلع من الوقت والمكان اللي تريده.</div>
         </div>

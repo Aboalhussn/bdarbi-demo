@@ -48,7 +48,7 @@ export function Rate() {
             </button>
           ))}
         </div>
-        <div className="center bold" style={{ color: stars >= 4 ? 'var(--success)' : stars ? '#7A5200' : 'var(--slate)', minHeight: 24 }}>{stars ? WORDS[stars] : 'اضغط على النجوم'}</div>
+        <div className="center bold" style={{ color: stars >= 4 ? 'var(--success)' : stars ? 'var(--warn-fg)' : 'var(--slate)', minHeight: 24 }}>{stars ? WORDS[stars] : 'اضغط على النجوم'}</div>
         {stars ? (
           <>
             <div className="label">{stars >= 4 ? 'شنو عجبك؟' : 'شنو اللي ما عجبك؟'}</div>

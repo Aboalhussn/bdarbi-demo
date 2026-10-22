@@ -126,13 +126,13 @@ export function OfficeRegister() {
       <div className="scroll pad stack gap10" style={{ paddingBottom: 24 }}>
         {step === 1 ? (
           <>
-            <div className="field"><label htmlFor="oname">اسم المكتب</label><input id="oname" className="input" style={{ background: '#fff' }} placeholder="مثلاً: مكتب الرافدين للسفر" value={name} onChange={(e) => { setName(e.target.value); setErr(''); }} /></div>
-            <div className="field"><label htmlFor="oman">اسم المدير</label><input id="oman" className="input" style={{ background: '#fff' }} value={manager} onChange={(e) => { setManager(e.target.value); setErr(''); }} /></div>
+            <div className="field"><label htmlFor="oname">اسم المكتب</label><input id="oname" className="input" style={{ background: 'var(--card)' }} placeholder="مثلاً: مكتب الرافدين للسفر" value={name} onChange={(e) => { setName(e.target.value); setErr(''); }} /></div>
+            <div className="field"><label htmlFor="oman">اسم المدير</label><input id="oman" className="input" style={{ background: 'var(--card)' }} value={manager} onChange={(e) => { setManager(e.target.value); setErr(''); }} /></div>
             <PhoneField value={phone} onChange={(v) => { setPhone(v); setErr(''); }} />
             <div className="field"><span className="label">المحافظة</span><CityPicker label="المحافظة" value={city} onChange={setCity} variant="field" /></div>
-            <div className="field"><label htmlFor="oaddr">العنوان</label><input id="oaddr" className="input" style={{ background: '#fff' }} placeholder="المنطقة، أقرب نقطة دالة" value={address} onChange={(e) => { setAddress(e.target.value); setErr(''); }} /></div>
-            <div className="field"><label htmlFor="ofleet">المركبات (اختياري)</label><input id="ofleet" className="input" style={{ background: '#fff' }} placeholder="مثلاً: 2 باص · 3 كوستر" value={fleet} onChange={(e) => setFleet(e.target.value)} /></div>
-            <div className="field"><label htmlFor="opass">كلمة السر</label><input id="opass" type="password" className="input" style={{ background: '#fff' }} value={pass} onChange={(e) => { setPass(e.target.value); setErr(''); }} /></div>
+            <div className="field"><label htmlFor="oaddr">العنوان</label><input id="oaddr" className="input" style={{ background: 'var(--card)' }} placeholder="المنطقة، أقرب نقطة دالة" value={address} onChange={(e) => { setAddress(e.target.value); setErr(''); }} /></div>
+            <div className="field"><label htmlFor="ofleet">المركبات (اختياري)</label><input id="ofleet" className="input" style={{ background: 'var(--card)' }} placeholder="مثلاً: 2 باص · 3 كوستر" value={fleet} onChange={(e) => setFleet(e.target.value)} /></div>
+            <div className="field"><label htmlFor="opass">كلمة السر</label><input id="opass" type="password" className="input" style={{ background: 'var(--card)' }} value={pass} onChange={(e) => { setPass(e.target.value); setErr(''); }} /></div>
             <PasswordMeter value={pass} />
           </>
         ) : (

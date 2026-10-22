@@ -67,7 +67,7 @@ function TripCard({ t, onClick }: { t: AgencyTrip; onClick: () => void }) {
       <div className="ag-bar"><i style={{ width: `${Math.min(100, (t.booked / seats) * 100)}%` }} /></div>
       <div className="row small" style={{ justifyContent: 'space-between', width: '100%' }}>
         <b style={{ color: 'var(--navy)' }}><span className="num">{t.booked}</span> من <span className="num">{seats}</span> محجوز</b>
-        <b style={{ color: full ? 'var(--success)' : '#B23A4C' }}>{full ? 'ممتلئة' : <><span className="num">{empty}</span> فارغ</>}</b>
+        <b style={{ color: full ? 'var(--success)' : 'var(--bad)' }}>{full ? 'ممتلئة' : <><span className="num">{empty}</span> فارغ</>}</b>
       </div>
     </button>
   );
@@ -349,7 +349,7 @@ export function AgencyDrivers() {
         {agencyDrivers.map((d) => {
           const v = findVehicle(agencyVehicles, d.vehicleId);
           return (
-            <div key={d.id} className="list-item" style={{ background: '#fff', borderRadius: 18, padding: '10px 12px' }}>
+            <div key={d.id} className="list-item" style={{ background: 'var(--card)', borderRadius: 18, padding: '10px 12px' }}>
               <span className="ic"><Icon name="user" size={20} /></span>
               <span className="grow">
                 <span className="bold" style={{ display: 'block' }}>{d.name}</span>
@@ -411,16 +411,16 @@ export function AgencyInfo() {
       <TopBar title="معلومات المكتب" />
       <div className="scroll pad stack gap12" style={{ paddingBottom: 24 }}>
         <button className="center stack gap6" style={{ alignItems: 'center' }} onClick={() => fileRef.current?.click()}>
-          <span className="agency-logo" style={{ width: 88, height: 88, borderRadius: 26, background: 'var(--navy)' }}>
+          <span className="agency-logo" style={{ width: 88, height: 88, borderRadius: 26, background: 'var(--hero)' }}>
             {f.logo ? <img src={f.logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit' }} /> : <Logo size={46} />}
           </span>
           <span className="link small">بدّل شعار المكتب</span>
         </button>
         <input ref={fileRef} type="file" accept="image/*" hidden onChange={async (e) => { const file = e.target.files?.[0]; e.target.value = ''; if (!file) return; try { const logo = await shrinkImage(file); setF({ ...f, logo }); } catch { showToast('ما گدرنا نقرأ الصورة'); } }} />
-        <div className="field"><label htmlFor="aname">اسم المكتب</label><input id="aname" className="input" style={{ background: '#fff' }} value={f.name} onChange={(e) => { setF({ ...f, name: e.target.value }); setErr(''); }} /></div>
+        <div className="field"><label htmlFor="aname">اسم المكتب</label><input id="aname" className="input" style={{ background: 'var(--card)' }} value={f.name} onChange={(e) => { setF({ ...f, name: e.target.value }); setErr(''); }} /></div>
         <PhoneField value={f.phone} onChange={(v) => { setF({ ...f, phone: formatPhone(v) }); setErr(''); }} />
-        <div className="field"><label htmlFor="aemail">الإيميل</label><input id="aemail" className="input" dir="ltr" style={{ background: '#fff', textAlign: 'left' }} value={f.email} onChange={(e) => { setF({ ...f, email: e.target.value.trim() }); setErr(''); }} /></div>
-        <div className="field"><label htmlFor="aaddr">العنوان</label><input id="aaddr" className="input" style={{ background: '#fff' }} value={f.address} onChange={(e) => { setF({ ...f, address: e.target.value }); setErr(''); }} /></div>
+        <div className="field"><label htmlFor="aemail">الإيميل</label><input id="aemail" className="input" dir="ltr" style={{ background: 'var(--card)', textAlign: 'left' }} value={f.email} onChange={(e) => { setF({ ...f, email: e.target.value.trim() }); setErr(''); }} /></div>
+        <div className="field"><label htmlFor="aaddr">العنوان</label><input id="aaddr" className="input" style={{ background: 'var(--card)' }} value={f.address} onChange={(e) => { setF({ ...f, address: e.target.value }); setErr(''); }} /></div>
         {err ? <div className="err">{err}</div> : null}
       </div>
       <div className="bottombar"><button className="btn" onClick={save}>حفظ</button></div>

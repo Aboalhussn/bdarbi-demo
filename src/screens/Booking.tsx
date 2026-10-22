@@ -97,9 +97,9 @@ export function Seats() {
       <TopBar title="اختار المقعد اللي تريده" sub={<>{trip.company} · {trip.kind} {trip.capacity} مقعد · <span className="num"><Time v={trip.time} /></span> · {longDate(date)}</>} />
       <div className="legend" style={{ padding: '0 20px 10px' }}>
         <span><i style={{ border: '1.5px solid var(--mist)' }} />متوفر</span>
-        <span><i style={{ background: 'var(--navy)' }} />اختيارك</span>
-        <span><i style={{ background: '#DCDAE6' }} />محجوز</span>
-        {trip.ladies.length ? <span><i style={{ background: '#F7D9DE' }} />نساء</span> : null}
+        <span><i style={{ background: 'var(--primary)' }} />اختيارك</span>
+        <span><i style={{ background: 'var(--booked)' }} />محجوز</span>
+        {trip.ladies.length ? <span><i style={{ background: 'var(--lady)' }} />نساء</span> : null}
       </div>
       <div className="scroll pad" style={{ paddingBottom: 20 }}>
         {trip.kind === 'سيارة' ? (
@@ -143,7 +143,7 @@ export function Seats() {
             <div className="num" style={{ fontWeight: 700, fontSize: 21, color: 'var(--navy)' }}>{money(sel.length * trip.price)} <span style={{ fontSize: 12 }}>د.ع</span></div>
           </div>
         </div>
-        <div className="tiny bold" style={{ color: warn ? '#B23A4C' : 'var(--slate)', minHeight: 18 }}>{hint}</div>
+        <div className="tiny bold" style={{ color: warn ? 'var(--bad)' : 'var(--slate)', minHeight: 18 }}>{hint}</div>
         <button className="btn" disabled={!sel.length || (exact && sel.length !== limit)} onClick={() => go('checkout', { tripId: trip.id, date, seats: sel, family })}>
           {exact && sel.length !== limit ? `باقي تختار ${limit - sel.length}` : sel.length > 1 ? `حجز ${sel.length} مقاعد` : 'حجز المقعد'}
         </button>
@@ -302,7 +302,7 @@ export function Checkout() {
                 <div className="row gap8">
                   <span className="pax-seat num">{p.seat}</span>
                   <b className="grow">{people.length > 1 ? `المسافر ${i + 1}` : 'المسافر'}{i === 0 && people.length > 1 ? ' (صاحب الحجز)' : ''}</b>
-                  {lady ? <span className="pill" style={{ background: '#F7D9DE', color: '#8C2A3C', height: 24, fontSize: 11 }}>مقعد نساء</span> : null}
+                  {lady ? <span className="pill" style={{ background: 'var(--lady)', color: 'var(--lady-fg)', height: 24, fontSize: 11 }}>مقعد نساء</span> : null}
                 </div>
                 <input className="input" aria-label={`اسم المسافر بمقعد ${p.seat}`} placeholder="الاسم الثلاثي" value={p.name} onChange={(e) => edit(p.seat, { name: e.target.value.slice(0, 40) })} />
                 <div className="seg small-seg" role="radiogroup" aria-label="الجنس">

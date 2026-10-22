@@ -272,7 +272,7 @@ function TripPassengers({ trip, office, newReq, manifest, boardedAt, board, go, 
     <div className="screen">
       <TopBar title={`${trip.from} ← ${trip.to}`} sub={<>اليوم · <span className="num"><Time v={trip.time} /></span> · صعدوا <b className="num">{boarded}/{seats}</b></>} right={office ? undefined : <button className="iconbtn req-btn" aria-label={`طلبات الحجز${newReq ? `، ${newReq} جديدة` : ''}`} onClick={() => go('driverRequests')}><Icon name="inbox" size={22} />{newReq ? <span className="badge num">{newReq}</span> : null}</button>} />
       <div className="legend" style={{ padding: '0 20px 10px' }}>
-        <span><i style={{ background: '#DCDAE6' }} />محجوز</span>
+        <span><i style={{ background: 'var(--booked)' }} />محجوز</span>
         <span><i style={{ background: 'var(--success-bg)', border: '1.5px solid #9BD1B1' }} />صعد</span>
         <span><i style={{ border: '1.5px solid var(--mist)' }} />فارغ</span>
       </div>
@@ -435,7 +435,7 @@ export function DriverScan() {
       <div className="scanner">
         <video ref={videoRef} playsInline muted />
         {cam !== 'on' ? (
-          <div className="empty" style={{ position: 'absolute', inset: 0, justifyContent: 'center', color: '#fff', background: 'var(--navy)' }}>
+          <div className="empty" style={{ position: 'absolute', inset: 0, justifyContent: 'center', color: '#fff', background: 'var(--hero)' }}>
             <Icon name="scan" size={46} />
             <b style={{ fontSize: 18 }}>{cam === 'starting' ? 'جاري تشغيل الكاميرا…' : cam === 'denied' ? 'اسمح للتطبيق يستخدم الكاميرا' : 'الكاميرا مو متوفرة'}</b>
             <span className="small" style={{ opacity: 0.8 }}>{cam === 'denied' ? 'من إعدادات التلفون › التطبيقات › بدربي › الأذونات › الكاميرا. أو اكتب رمز الحجز يدوياً.' : 'تكدر تكتب رمز الحجز يدوياً.'}</span>
@@ -452,7 +452,7 @@ export function DriverScan() {
           <button className="iconbtn" disabled={!torchOk} aria-label="الفلاش" aria-pressed={torch} style={{ background: torch ? 'var(--gold)' : 'rgba(255,255,255,.16)', color: torch ? '#2A1A00' : '#fff', opacity: torchOk ? 1 : 0.4 }} onClick={() => void toggleTorch()}><Icon name="flash" size={20} /></button>
         </div>
       </div>
-      <div style={{ background: '#fff', borderRadius: '28px 28px 0 0', marginTop: -24, position: 'relative', padding: '18px 20px calc(20px + var(--safe-bottom))' }} className="stack gap10">
+      <div style={{ background: 'var(--card)', borderRadius: '28px 28px 0 0', marginTop: -24, position: 'relative', padding: '18px 20px calc(20px + var(--safe-bottom))' }} className="stack gap10">
         {manual ? (
           <>
             <label className="label" htmlFor="mcode">اكتب رمز الحجز (6 خانات)</label>
@@ -482,7 +482,7 @@ export function DriverScanResult() {
       case 'ok':
         return { color: 'var(--success)', bg: 'var(--success-bg)', icon: 'check', title: 'التذكرة صحيحة', sub: 'تأكد من الاسم وصعّد المسافر' };
       case 'already':
-        return { color: '#7A5200', bg: '#FDF1D6', icon: 'info', title: 'صاعد من قبل', sub: `هذي التذكرة انمسحت الساعة ${fmt12(outcome.at)}` };
+        return { color: 'var(--warn-fg)', bg: 'var(--warn-bg)', icon: 'info', title: 'صاعد من قبل', sub: `هذي التذكرة انمسحت الساعة ${fmt12(outcome.at)}` };
       case 'other':
         return { color: 'var(--alert)', bg: 'var(--alert-bg)', icon: 'x', title: 'التذكرة لرحلة ثانية', sub: outcome.tripLabel };
       case 'cancelled':
@@ -543,7 +543,7 @@ export function DriverRequests() {
   const card = (r: (typeof requests)[number]) => (
     <div key={r.id} className="card stack gap10">
       <div className="row gap12">
-        <span className="ic" style={{ width: 44, height: 44, borderRadius: 14, background: '#EEEDF8', color: 'var(--navy)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="user" size={22} /></span>
+        <span className="ic" style={{ width: 44, height: 44, borderRadius: 14, background: 'var(--tint)', color: 'var(--navy)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="user" size={22} /></span>
         <div className="grow">
           <div className="bold">{r.name}</div>
           <div className="small muted">{r.route} · {r.when} · {r.seats} مقاعد</div>
@@ -746,8 +746,8 @@ export function DriverAddTrip() {
                 {officeDriver ? <div className="small muted">السائق: <b>{officeDriver.name}</b> — الرحلة تطلعله بتطبيق «كابتن بدربي».</div> : null}
               </>
             ) : (
-            <div className="card row gap12" style={{ background: '#EEEDF8', border: 0 }}>
-              <span className="df-ic" style={{ background: '#fff' }}><Icon name="bus" size={22} /></span>
+            <div className="card row gap12" style={{ background: 'var(--tint)', border: 0 }}>
+              <span className="df-ic" style={{ background: 'var(--card)' }}><Icon name="bus" size={22} /></span>
               <div className="grow">
                 <div className="tiny muted">مركبتك المسجّلة</div>
                 <div className="bold">{v.kind} {v.model} · {v.seats} مقعد</div>

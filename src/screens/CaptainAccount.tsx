@@ -387,7 +387,7 @@ export function DriverGoals() {
 
           <h2 className="h3" style={{ marginTop: 8 }}>اللي ربحتها</h2>
           {[...won.map((g) => ({ id: g.id, title: g.title, reward: g.reward, when: 'هسه' })), { id: 'g100', title: 'أول 100 رحلة', reward: 50000, when: 'الشهر الماضي' }].map((g) => (
-            <div key={g.id} className="list-item" style={{ background: '#fff', borderRadius: 16, padding: '10px 12px' }}>
+            <div key={g.id} className="list-item" style={{ background: 'var(--card)', borderRadius: 16, padding: '10px 12px' }}>
               <span className="ic" style={{ background: 'var(--success-bg)', color: 'var(--success)' }}><Icon name="check" size={20} stroke={3} /></span>
               <span className="grow">
                 <span className="bold" style={{ display: 'block' }}>{g.title}</span>

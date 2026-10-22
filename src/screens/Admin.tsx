@@ -219,7 +219,7 @@ function Overview({ wide, open }: { wide: boolean; open: (s: Section, sub?: stri
           </div>
           <div className="pad" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 18 }}>
             {stats.map(([l, v], i) => (
-              <div key={l} style={{ borderRadius: 16, background: i === 0 ? '#fff' : '#1C1488', color: i === 0 ? 'var(--navy)' : '#fff', padding: '12px 14px' }}>
+              <div key={l} style={{ borderRadius: 16, background: i === 0 ? '#fff' : '#1C1488', color: i === 0 ? '#0B0558' : '#fff', padding: '12px 14px' }}>
                 <div className="tiny" style={{ opacity: 0.8 }}>{l}</div>
                 <div className="num" style={{ fontWeight: 800, fontSize: 22 }}>{v}</div>
               </div>
@@ -537,7 +537,7 @@ function Bookings({ wide }: { wide: boolean }) {
     <>
       <Head wide={wide} title="الرحلات والحجوزات" sub={`${all.length} حجز`} />
       <div className={wide ? 'stack gap10' : 'pad stack gap10'}>
-        <input className="input" style={{ background: '#fff' }} placeholder="دوّر برمز الحجز أو الاسم" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input className="input" style={{ background: 'var(--card)' }} placeholder="دوّر برمز الحجز أو الاسم" value={q} onChange={(e) => setQ(e.target.value)} />
         {wide ? (
           <section className="adm-card">
             <table className="adm-table">

@@ -199,12 +199,12 @@ export function PackageDetail() {
           <div className="row gap8">
             {[[durationLabel(p).split(' · ')[0], durationLabel(p).split(' · ')[1] ?? 'بدون مبيت'], [longDate(p.date).split('،')[0], <Time key="t" v={p.time} />], [String(left), 'مقاعد باقية']].map(([a, b], i) => (
               <div key={i} className="card grow center" style={{ padding: '10px 4px' }}>
-                <b className="num" style={{ display: 'block', fontSize: 15, color: i === 2 && left <= 5 ? '#B23A4C' : 'var(--navy)' }}>{a}</b>
+                <b className="num" style={{ display: 'block', fontSize: 15, color: i === 2 && left <= 5 ? 'var(--bad)' : 'var(--navy)' }}>{a}</b>
                 <span className="tiny muted">{b}</span>
               </div>
             ))}
           </div>
-          {p.desc ? <p className="small" style={{ margin: 0, lineHeight: 1.8, color: '#3A3755' }}>{p.desc}</p> : null}
+          {p.desc ? <p className="small" style={{ margin: 0, lineHeight: 1.8, color: 'var(--ink2)' }}>{p.desc}</p> : null}
           <div className="card" style={{ padding: '4px 14px' }}>
             <div className="list-item" style={{ minHeight: 50 }}>
               <span className="ic"><Icon name="pin" size={18} /></span>
@@ -261,7 +261,7 @@ export function PackageDetail() {
 
 function Counter({ label, sub, value, min, max, onChange }: { label: string; sub?: string; value: number; min: number; max: number; onChange: (n: number) => void }) {
   return (
-    <div className="seats-card" style={{ background: '#fff' }}>
+    <div className="seats-card" style={{ background: 'var(--card)' }}>
       <div className="grow">
         <div className="bold">{label}</div>
         {sub ? <div className="tiny muted">{sub}</div> : null}
@@ -329,7 +329,7 @@ export function PackageBook() {
         ) : null}
         <div className="field">
           <label htmlFor="lead">اسم صاحب الحجز</label>
-          <input id="lead" className="input" style={{ background: '#fff' }} placeholder="الاسم الثلاثي" value={lead} onChange={(e) => { setLead(e.target.value); setErr(''); }} />
+          <input id="lead" className="input" style={{ background: 'var(--card)' }} placeholder="الاسم الثلاثي" value={lead} onChange={(e) => { setLead(e.target.value); setErr(''); }} />
         </div>
         <span className="label">طريقة الدفع</span>
         {([
@@ -673,7 +673,7 @@ export function PkgCreate() {
             <span className="label">الأسعار (للشخص)</span>
             <div className="card" style={{ padding: '4px 14px' }}>
               {([['priceAdult', 'البالغ', ''], ['priceChild', 'الطفل', 'تحت 10 سنين · 0 = ما يقبل أطفال'], ['priceSingle', 'غرفة منفردة', 'زيادة · 0 = ماكو']] as const).map(([k, l, sub]) => (
-                <div key={k} className="row gap10" style={{ minHeight: 60, borderBottom: k !== 'priceSingle' ? '1px solid #ECEBF3' : 0 }}>
+                <div key={k} className="row gap10" style={{ minHeight: 60, borderBottom: k !== 'priceSingle' ? '1px solid var(--line)' : 0 }}>
                   <label htmlFor={k} className="grow"><b style={{ display: 'block' }}>{l}</b>{sub ? <span className="tiny muted">{sub}</span> : null}</label>
                   <input id={k} className="input num" inputMode="numeric" dir="ltr" style={{ width: 120, height: 42, textAlign: 'center', fontWeight: 700 }} value={d[k] ? money(d[k]) : ''} placeholder="0" onChange={(e) => up({ [k]: Number(e.target.value.replace(/\D/g, '')) } as Partial<Draft>)} />
                   <span className="tiny muted">د.ع</span>

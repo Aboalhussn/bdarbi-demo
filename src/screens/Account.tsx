@@ -191,7 +191,7 @@ export function PersonalInfo() {
             ) : (
               <Avatar size={104} src={avatar} />
             )}
-            <span style={{ position: 'absolute', bottom: 2, left: 2, width: 34, height: 34, borderRadius: '50%', background: 'var(--navy)', color: '#fff', border: '3px solid #F7F6FA', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ position: 'absolute', bottom: 2, left: 2, width: 34, height: 34, borderRadius: '50%', background: 'var(--primary)', color: '#fff', border: '3px solid var(--page)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Icon name="camera" size={16} />
             </span>
           </button>

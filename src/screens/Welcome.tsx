@@ -198,7 +198,7 @@ export function Login() {
             <h1 style={{ fontSize: 30, fontWeight: 800, marginTop: 8, lineHeight: 1.35 }}>{agency ? 'مكاتب السفر' : driver ? 'كابتن بدربي' : 'أهلاً بيك من جديد'}</h1>
             <p style={{ margin: '8px 0 0', color: 'rgba(255,255,255,.78)' }}>{agency ? 'أدر رحلات مكتبك وسواقك ومركباتك من مكان واحد.' : driver ? 'سجّل دخولك حتى تدير رحلاتك وتمسح تذاكر الركاب.' : 'سجّل دخولك برقم موبايلك وخلّي الرحلة علينا.'}</p>
           </div>
-          <img src={driver ? './img/driver.png' : './img/mascot.png'} alt="" style={{ position: 'absolute', left: 18, bottom: driver ? 0 : -60, height: driver ? 200 : 290, width: 'auto' }} />
+          <img src={driver ? './img/driver.png' : './img/mascot-flip.png'} alt="" style={{ position: 'absolute', left: 18, bottom: driver ? 0 : -60, height: driver ? 200 : 290, width: 'auto' }} />
         </div>
         <div className="pad stack gap6" style={{ marginTop: 22 }}>
           {!driver && (
@@ -300,7 +300,7 @@ export function Register() {
           <div className="err">{errs.pass}</div>
         </div>
         <button className="row gap10" style={{ textAlign: 'right', padding: '6px 0' }} onClick={() => setAgree(!agree)}>
-          <span style={{ width: 24, height: 24, borderRadius: 7, border: '2px solid var(--navy)', background: agree ? 'var(--navy)' : 'transparent', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <span style={{ width: 24, height: 24, borderRadius: 7, border: '2px solid var(--primary)', background: agree ? 'var(--primary)' : 'transparent', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             {agree && <Icon name="check" size={16} stroke={3} />}
           </span>
           <span className="small">أوافق على الشروط والأحكام وسياسة الخصوصية</span>
