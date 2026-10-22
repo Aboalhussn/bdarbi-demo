@@ -17,6 +17,7 @@ export interface Trip {
   from: string;
   to: string;
   garageId: string;
+  endGarageId: string; // where the trip ends — shown to passengers as the drop-off point
   time: string; // HH:MM, 24h
   arrive: string;
   duration: string;
@@ -100,6 +101,9 @@ function addHours(time: string, h: number) {
   return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
+// Default drop-off garage in each destination city.
+const END_GARAGE: Record<string, string> = { 'البصرة': 'basra', 'أربيل': 'erbil', 'كربلاء المقدسة': 'karbala', 'النجف الأشرف': 'najaf', 'السليمانية': 'suli', 'بغداد': 'nahda' };
+
 export const TRIPS: Trip[] = DESTINATIONS.flatMap((to, di) =>
   rows[to].map(([time, company, rating, kind, taken, garageId], i) => {
     const capacity = capacityOf(kind);
@@ -109,6 +113,7 @@ export const TRIPS: Trip[] = DESTINATIONS.flatMap((to, di) =>
       from: 'بغداد',
       to,
       garageId,
+      endGarageId: END_GARAGE[to],
       time,
       arrive: addHours(time, base[to].hours),
       duration: base[to].dur,
@@ -137,6 +142,7 @@ DESTINATIONS.forEach((from, di) => {
       from,
       to: 'بغداد',
       garageId: RETURN_GARAGE[from],
+      endGarageId: i % 2 === 0 ? 'nahda' : 'allawi',
       time,
       arrive: addHours(time, base[from].hours),
       duration: base[from].dur,
@@ -286,4 +292,39 @@ export function fmt12(hhmm: string) {
   if (Number.isNaN(h)) return hhmm;
   const h12 = h % 12 === 0 ? 12 : h % 12;
   return `${h12}:${String(m).padStart(2, '0')} ${h < 12 ? 'ص' : 'م'}`;
+}
+
+// Road waypoints from Baghdad to each city (the main highways), used to draw the route on the map.
+const WAYPOINTS: Record<string, [number, number][]> = {
+  'البصرة': [[33.06, 44.36], [32.48, 44.42], [31.99, 44.93], [31.31, 45.28], [31.05, 46.26], [30.75, 47.1]],
+  'كربلاء المقدسة': [[33.06, 44.36], [32.78, 44.29]],
+  'النجف الأشرف': [[33.06, 44.36], [32.48, 44.42], [32.05, 44.4]],
+  'أربيل': [[33.81, 44.53], [34.89, 44.63], [35.47, 44.39], [35.75, 44.14]],
+  'السليمانية': [[33.81, 44.53], [34.89, 44.63], [35.47, 44.39], [35.53, 44.83]],
+};
+
+/** The road between two garages as a list of [lat, lng] points. */
+export function routePath(fromGarageId: string, toGarageId: string): [number, number][] {
+  const a = garageById(fromGarageId);
+  const b = garageById(toGarageId);
+  let mid: [number, number][] = [];
+  if (a.city === 'بغداد' && WAYPOINTS[b.city]) mid = WAYPOINTS[b.city];
+  else if (b.city === 'بغداد' && WAYPOINTS[a.city]) mid = [...WAYPOINTS[a.city]].reverse();
+  else if (WAYPOINTS[a.city] && WAYPOINTS[b.city]) mid = [...[...WAYPOINTS[a.city]].reverse(), [33.31, 44.37], ...WAYPOINTS[b.city]];
+  return [[a.lat, a.lng], ...mid, [b.lat, b.lng]];
+}
+
+/** The point a fraction (0..1) of the way along a path, plus its total length in km. */
+export function pointAlong(path: [number, number][], f: number): { pos: [number, number]; km: number } {
+  const seg = path.slice(1).map((p, i) => distanceKm(path[i][0], path[i][1], p[0], p[1]));
+  const total = seg.reduce((a, b) => a + b, 0);
+  let left = Math.max(0, Math.min(1, f)) * total;
+  for (let i = 0; i < seg.length; i++) {
+    if (left <= seg[i] || i === seg.length - 1) {
+      const t = seg[i] ? Math.min(1, left / seg[i]) : 0;
+      return { pos: [path[i][0] + (path[i + 1][0] - path[i][0]) * t, path[i][1] + (path[i + 1][1] - path[i][1]) * t], km: total };
+    }
+    left -= seg[i];
+  }
+  return { pos: path[path.length - 1], km: total };
 }

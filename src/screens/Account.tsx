@@ -42,6 +42,95 @@ function shrinkImage(file: File): Promise<string> {
   });
 }
 
+const PASS_RULES: [string, (p: string) => boolean][] = [
+  ['6 أحرف على الأقل', (p) => p.length >= 6],
+  ['حرف كبير (A-Z)', (p) => /[A-Z]/.test(p)],
+  ['حرف صغير (a-z)', (p) => /[a-z]/.test(p)],
+  ['رقم (0-9)', (p) => /[0-9]/.test(p)],
+  ['رمز خاص مثل ! @ # $', (p) => /[^A-Za-z0-9]/.test(p)],
+];
+
+/**
+ * Password strength as a 4-segment bar:
+ * weak = 1 red, medium = 2 yellow, good = 3 green, strong = 4 dark green.
+ */
+export function strength(p: string) {
+  const passed = PASS_RULES.filter(([, f]) => f(p)).length;
+  if (!p) return 0;
+  if (passed <= 2) return 1;
+  if (passed === 3) return 2;
+  if (passed === 4) return 3;
+  return 4;
+}
+
+const LEVELS = [
+  { label: '', color: '' },
+  { label: 'ضعيف', color: '#D2384F' },
+  { label: 'متوسط', color: '#F5B83D' },
+  { label: 'زين', color: '#3DB26B' },
+  { label: 'قوي', color: '#13703D' },
+];
+
+function PasswordMeter({ value }: { value: string }) {
+  const lvl = strength(value);
+  const missing = PASS_RULES.filter(([, f]) => !f(value)).map(([label]) => label);
+  return (
+    <div className="pass-meter" aria-live="polite">
+      <div className="pm-bars">
+        {[1, 2, 3, 4].map((i) => (
+          <i key={i} style={i <= lvl ? { background: LEVELS[lvl].color } : undefined} />
+        ))}
+      </div>
+      <div className="row" style={{ justifyContent: 'space-between', gap: 10, alignItems: 'flex-start' }}>
+        <span className="tiny muted grow">{value ? (missing.length ? `ضيف: ${missing.join('، ')}` : 'رمز قوي ✓') : 'لازم: 6 أحرف على الأقل، حرف كبير وصغير، رقم ورمز خاص'}</span>
+        {lvl ? <b className="small" style={{ color: LEVELS[lvl].color, flexShrink: 0 }}>{LEVELS[lvl].label}</b> : null}
+      </div>
+    </div>
+  );
+}
+
+function ChangePassword({ onDone }: { onDone: (p: string) => void }) {
+  const { password } = useStore();
+  const [current, setCurrent] = useState('');
+  const [pass, setPass] = useState('');
+  const [pass2, setPass2] = useState('');
+  const [show, setShow] = useState(false);
+  const [err, setErr] = useState('');
+  const ok = PASS_RULES.every(([, f]) => f(pass));
+  const save = () => {
+    if (password && current !== password) return setErr('الرمز الحالي مو صحيح');
+    if (!ok) return setErr('الرمز لازم يكون قوي (4 خطوط خضر)');
+    if (pass !== pass2) return setErr('الرمزين مو نفس الشي');
+    onDone(pass);
+  };
+  const type = show ? 'text' : 'password';
+  return (
+    <div className="stack gap10">
+      <div className="row" style={{ justifyContent: 'space-between' }}>
+        <h2 className="h3">تغيير الرمز</h2>
+        <button className="link small" onClick={() => setShow(!show)}><Icon name="eye" size={16} /> {show ? 'إخفاء' : 'إظهار'}</button>
+      </div>
+      {password ? (
+        <div className="field">
+          <label htmlFor="pcur">الرمز الحالي</label>
+          <input id="pcur" type={type} className="input" dir="ltr" value={current} onChange={(e) => { setCurrent(e.target.value); setErr(''); }} />
+        </div>
+      ) : null}
+      <div className="field">
+        <label htmlFor="pnew">الرمز الجديد</label>
+        <input id="pnew" type={type} className="input" dir="ltr" value={pass} onChange={(e) => { setPass(e.target.value); setErr(''); }} />
+      </div>
+      <PasswordMeter value={pass} />
+      <div className="field">
+        <label htmlFor="pnew2">أكّد الرمز الجديد</label>
+        <input id="pnew2" type={type} className={`input ${pass2 && pass2 !== pass ? 'bad' : ''}`} dir="ltr" value={pass2} onChange={(e) => { setPass2(e.target.value); setErr(''); }} />
+      </div>
+      {err ? <div className="err">{err}</div> : null}
+      <button className="btn" disabled={!ok || !pass2} onClick={save}>غيّر الرمز</button>
+    </div>
+  );
+}
+
 export function PersonalInfo() {
   const store = useStore();
   const { set, back, showToast } = store;
@@ -49,10 +138,11 @@ export function PersonalInfo() {
   const [avatar, setAvatar] = useState(store.avatar);
   const [name, setName] = useState(store.name === 'ضيف' ? '' : store.name);
   const [phone, setPhone] = useState(store.phone);
-  const [pass, setPass] = useState('');
-  const [pass2, setPass2] = useState('');
+  const [email, setEmail] = useState(store.email);
+  const [gender, setGender] = useState(store.gender);
   const [errs, setErrs] = useState<Record<string, string>>({});
   const [photoSheet, setPhotoSheet] = useState(false);
+  const [passSheet, setPassSheet] = useState(false);
 
   const onFile = async (f?: File | null) => {
     if (!f) return;
@@ -68,53 +158,58 @@ export function PersonalInfo() {
     if (name.trim().length < 2) e.name = 'اكتب اسمك';
     const pe = phoneError(phone);
     if (pe) e.phone = pe;
-    if (pass || pass2) {
-      if (pass.length < 4) e.pass = 'الرمز 4 أحرف أو أكثر';
-      else if (pass !== pass2) e.pass2 = 'الرمزين مو نفس الشي';
-    }
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) e.email = 'الإيميل مو صحيح';
     setErrs(e);
     if (Object.keys(e).length) return;
-    set({ avatar, name: name.trim(), phone, ...(pass ? { password: pass } : {}) });
+    set({ avatar, name: name.trim(), phone, email: email.trim(), gender });
     showToast('انحفظت معلوماتك ✓');
     back();
   };
 
   return (
-    <div className="screen">
+    <div className="screen gray">
       <TopBar title="معلوماتك الشخصية" />
-      <div className="scroll pad stack gap6" style={{ paddingBottom: 20 }}>
-        <div className="stack" style={{ alignItems: 'center', gap: 10, margin: '6px 0 14px' }}>
+      <div className="scroll pad stack gap14" style={{ paddingBottom: 20 }}>
+        <div className="stack" style={{ alignItems: 'center', gap: 8, marginTop: 4 }}>
           <button onClick={() => setPhotoSheet(true)} aria-label="غيّر الصورة" style={{ position: 'relative' }}>
-            <Avatar size={112} src={avatar} />
-            <span style={{ position: 'absolute', bottom: 2, left: 2, width: 36, height: 36, borderRadius: '50%', background: 'var(--navy)', color: '#fff', border: '3px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Icon name="camera" size={17} />
+            <Avatar size={104} src={avatar} />
+            <span style={{ position: 'absolute', bottom: 2, left: 2, width: 34, height: 34, borderRadius: '50%', background: 'var(--navy)', color: '#fff', border: '3px solid #F7F6FA', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="camera" size={16} />
             </span>
           </button>
           <button className="link small" onClick={() => setPhotoSheet(true)}>{avatar ? 'غيّر الصورة' : 'أضف صورة'}</button>
           <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => { void onFile(e.target.files?.[0]); e.target.value = ''; }} />
         </div>
 
-        <div className="field">
-          <label htmlFor="iname">الاسم</label>
-          <input id="iname" className={`input ${errs.name ? 'bad' : ''}`} value={name} placeholder="اسمك الكامل" onChange={(e) => setName(e.target.value)} />
-          <div className="err">{errs.name}</div>
-        </div>
-        <PhoneField value={phone} onChange={setPhone} error={errs.phone} />
-
-        <div className="card flat stack gap6" style={{ marginTop: 4 }}>
-          <div className="row gap8"><Icon name="lock" size={18} /><b>تغيير الرمز</b></div>
-          <div className="tiny muted">اتركه فارغ إذا ما تريد تغيّره.</div>
-          <div className="field" style={{ marginTop: 6 }}>
-            <label htmlFor="ipass">الرمز الجديد</label>
-            <input id="ipass" type="password" className={`input ${errs.pass ? 'bad' : ''}`} style={{ background: '#fff' }} value={pass} placeholder="••••••" onChange={(e) => setPass(e.target.value)} />
-            <div className="err">{errs.pass}</div>
+        <div className="form-card">
+          <div className="field">
+            <label htmlFor="iname">الاسم الكامل</label>
+            <input id="iname" className={`input ${errs.name ? 'bad' : ''}`} value={name} placeholder="مثلاً: علي حسن" onChange={(e) => setName(e.target.value)} />
+            {errs.name ? <div className="err">{errs.name}</div> : null}
+          </div>
+          <PhoneField value={phone} onChange={setPhone} error={errs.phone} />
+          <div className="field">
+            <label htmlFor="iemail">الإيميل</label>
+            <input id="iemail" type="email" inputMode="email" dir="ltr" className={`input ${errs.email ? 'bad' : ''}`} style={{ textAlign: 'left' }} value={email} placeholder="name@example.com" onChange={(e) => setEmail(e.target.value)} />
+            {errs.email ? <div className="err">{errs.email}</div> : null}
           </div>
           <div className="field">
-            <label htmlFor="ipass2">أكّد الرمز</label>
-            <input id="ipass2" type="password" className={`input ${errs.pass2 ? 'bad' : ''}`} style={{ background: '#fff' }} value={pass2} placeholder="••••••" onChange={(e) => setPass2(e.target.value)} />
-            <div className="err">{errs.pass2}</div>
+            <span className="label">الجنس</span>
+            <div className="seg">
+              <button className={gender === 'male' ? 'on' : ''} onClick={() => setGender('male')}>ذكر</button>
+              <button className={gender === 'female' ? 'on' : ''} onClick={() => setGender('female')}>أنثى</button>
+            </div>
           </div>
         </div>
+
+        <button className="form-card row gap12" style={{ textAlign: 'right' }} onClick={() => setPassSheet(true)}>
+          <span className="df-ic"><Icon name="lock" size={20} /></span>
+          <span className="grow">
+            <span className="bold" style={{ display: 'block' }}>تغيير الرمز</span>
+            <span className="tiny muted">{store.password ? 'آخر رمز محفوظ بهذا التلفون' : 'حط رمز قوي لحسابك'}</span>
+          </span>
+          <Icon name="forward" size={18} />
+        </button>
       </div>
       <div className="bottombar">
         <button className="btn" onClick={save}>حفظ</button>
@@ -125,6 +220,9 @@ export function PersonalInfo() {
           <button className="btn soft" onClick={() => { setPhotoSheet(false); fileRef.current?.click(); }}><Icon name="camera" size={20} /> اختار صورة</button>
           {avatar ? <button className="btn soft" style={{ color: 'var(--alert)' }} onClick={() => { setAvatar(''); setPhotoSheet(false); }}><Icon name="x" size={20} /> شيل الصورة</button> : null}
         </div>
+      </Sheet>
+      <Sheet open={passSheet} onClose={() => setPassSheet(false)} label="تغيير الرمز">
+        <ChangePassword onDone={(p) => { set({ password: p }); setPassSheet(false); showToast('تغيّر الرمز ✓'); }} />
       </Sheet>
     </div>
   );

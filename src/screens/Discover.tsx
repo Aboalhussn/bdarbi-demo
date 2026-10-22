@@ -368,7 +368,7 @@ export function Search() {
                         <span className="bold" style={{ color: 'var(--ink)' }}>{t.company}</span>
                         <span>·</span><Stars rate={t.rating} />
                         <span>·</span><span>{t.kind}</span>
-                        <span>·</span><span>{garageById(t.garageId).name}</span>
+                        <span>·</span><span>{garageById(t.garageId).name} ← {garageById(t.endGarageId).name}</span>
                       </div>
                       <div className="row" style={{ justifyContent: 'space-between' }}>
                         <span className={`pill ${left <= 4 ? 'bad' : 'ok'}`}>باقي {left}</span>

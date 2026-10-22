@@ -313,24 +313,24 @@ export function CityPicker({ label, value, onChange, exclude, excludeNote = 'م�
 }
 
 /** "Choose the departure garage" box; opens the city's garages in a sheet. */
-export function GarageField({ label, city, value, onChange }: { label: string; city: string; value: string; onChange: (id: string) => void }) {
+export function GarageField({ label, city, value, onChange, placeholder = 'اختار كراج الانطلاق', icon = 'bus' }: { label: string; city: string; value: string; onChange: (id: string) => void; placeholder?: string; icon?: string }) {
   const [open, setOpen] = useState(false);
   const list = GARAGES.filter((g) => g.city === city);
   const chosen = list.find((g) => g.id === value);
   return (
     <>
       <button className={`datefield ${chosen ? '' : 'is-empty'}`} onClick={() => setOpen(true)} style={{ height: 'auto', minHeight: 64, padding: '10px 14px' }}>
-        <span className="df-ic"><Icon name="bus" size={20} /></span>
+        <span className="df-ic"><Icon name={icon} size={20} /></span>
         <span className="grow">
           <span className="df-label">{label}</span>
-          <span className="df-value">{chosen ? chosen.name : 'اختار كراج الانطلاق'}</span>
+          <span className="df-value">{chosen ? chosen.name : placeholder}</span>
           {chosen ? <span className="tiny muted" style={{ display: 'block' }}>{chosen.address}</span> : null}
         </span>
         <Icon name="forward" size={16} />
       </button>
       <Sheet open={open} onClose={() => setOpen(false)} label={label}>
-        <h2 className="h3">كراجات {city}</h2>
-        <div className="small muted" style={{ marginBottom: 10 }}>اختار الكراج اللي تطلع منه</div>
+        <h2 className="h3">{label}</h2>
+        <div className="small muted" style={{ marginBottom: 10 }}>كراجات {city}</div>
         <div className="stack gap8">
           {list.map((g) => (
             <button key={g.id} className={`garage-opt ${g.id === value ? 'on' : ''}`} onClick={() => { onChange(g.id); setOpen(false); }}>

@@ -1,9 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Icon, Logo } from '../icons';
 import { useStore } from '../store';
 
 export function Splash() {
   const { reset, role, onboarded } = useStore();
+  const groupRef = useRef<HTMLDivElement>(null);
+  const [settle, setSettle] = useState(0);
+  useLayoutEffect(() => {
+    const h = groupRef.current?.offsetHeight ?? 0;
+    setSettle(Math.max(0, h / 2 - 70));
+  }, []);
   useEffect(() => {
     const t = window.setTimeout(() => {
       if (role === 'passenger') reset('home');
@@ -31,9 +37,10 @@ export function Splash() {
         <rect width="100%" height="100%" fill="url(#bdVig)" />
       </svg>
       <div className="glow" aria-hidden="true" />
-      {/* The logo sits exactly in the middle, where the phone's launch screen draws it, so the two join up. */}
-      <Logo className="logo" size={140} />
-      <div className="splash-text">
+      {/* The whole group is centred. The logo starts where the phone's launch screen drew it
+          (dead centre) and glides up into place, so the two screens join up. */}
+      <div className="splash-group" ref={groupRef} style={{ ['--settle' as string]: `${settle}px` }}>
+        <Logo className="logo" size={140} />
         <div className="word">بدربي</div>
         <div className="tag">مقعدك محجوز... بدربك</div>
         <div className="road" role="progressbar" aria-label="جاري التحميل">

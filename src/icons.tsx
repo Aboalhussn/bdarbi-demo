@@ -42,6 +42,7 @@ const paths: Record<string, ReactNode> = {
   camera: <><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" /><circle cx="12" cy="13.5" r="3.5" /></>,
   lock: <><rect x="5" y="10" width="14" height="10" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></>,
   edit: <><path d="M4 20h4L19 9l-4-4L4 16z" /><path d="m13.5 6.5 4 4" /></>,
+  shield: <><path d="M12 3 5 6v6c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V6z" /><path d="m9 12 2 2 4-4" /></>,
   download: <><path d="M12 4v11M7 10l5 5 5-5" /><path d="M5 19h14" /></>,
   arrowDown: <path d="M12 5v14M6 13l6 6 6-6" />,
   arrowUp: <path d="M12 19V5M6 11l6-6 6 6" />,

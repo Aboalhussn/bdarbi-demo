@@ -134,8 +134,8 @@ export async function renderTicket(b: Booking, trip: Trip, boardedAt?: string): 
   dashed(ctx, L + 330, R - 330, y - 26, '#B9B5D3');
   text(ctx, trip.duration, W / 2, y - 50, `500 30px ${T}`, SLATE, 'center');
   y += 62;
-  text(ctx, `${trip.from} · ${garage.name}`, R, y, `500 34px ${T}`, SLATE);
-  text(ctx, trip.to, L, y, `500 34px ${T}`, SLATE, 'left');
+  text(ctx, `${trip.from} · ${garage.name}`, R, y, `500 30px ${T}`, SLATE);
+  text(ctx, `${trip.to} · ${garageById(trip.endGarageId).name}`, L, y, `500 30px ${T}`, SLATE, 'left');
 
   // Date / seats / platform.
   y += 100;

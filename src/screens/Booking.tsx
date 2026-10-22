@@ -248,7 +248,8 @@ export function Checkout() {
           </div>
           <div className="divider" />
           <div className="row small" style={{ justifyContent: 'space-between' }}><span className="muted">التاريخ</span><b>{longDate(date)}</b></div>
-          <div className="row small" style={{ justifyContent: 'space-between' }}><span className="muted">الكراج</span><b>{garage.name}</b></div>
+          <div className="row small" style={{ justifyContent: 'space-between' }}><span className="muted">الانطلاق من</span><b>{garage.name}</b></div>
+          <div className="row small" style={{ justifyContent: 'space-between' }}><span className="muted">نقطة الانتهاء</span><b>{garageById(trip.endGarageId).name}</b></div>
           <div className="row small" style={{ justifyContent: 'space-between' }}><span className="muted">المقاعد</span><b>{seats.join('، ')}</b></div>
         </div>
 
@@ -300,7 +301,7 @@ export function Checkout() {
 }
 
 export function Ticket() {
-  const { route, bookings, reset, boardedAt, cancelBooking, showToast, name } = useStore();
+  const { route, bookings, reset, go, boardedAt, cancelBooking, showToast, name } = useStore();
   const code = String(route.params?.code);
   const fresh = route.params?.fresh === true;
   const b = bookings.find((x) => x.code === code);
@@ -367,7 +368,7 @@ export function Ticket() {
               <span className="dash" />
               <div style={{ textAlign: 'left' }}>
                 <div className="num" style={{ fontWeight: 800, fontSize: 26, color: 'var(--navy)' }}><Time v={trip.arrive} /></div>
-                <div className="small muted">{trip.to}</div>
+                <div className="small muted">{trip.to} · {garageById(trip.endGarageId).name.replace('كراج ', '')}</div>
               </div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 10, marginTop: 16 }}>
@@ -391,7 +392,14 @@ export function Ticket() {
           </div>
         </div>
 
-        <div className="row gap10" style={{ margin: '16px 20px 0' }}>
+        {!cancelled && !past ? (
+          <div style={{ margin: '16px 20px 0' }}>
+            <button className="btn" style={{ background: 'var(--gold)', color: '#2A1A00' }} onClick={() => go('track', { code: b.code })}>
+              <Icon name="pin" size={20} /> تتبع الباص
+            </button>
+          </div>
+        ) : null}
+        <div className="row gap10" style={{ margin: '12px 20px 0' }}>
           <button className="btn sm" style={{ background: 'rgba(255,255,255,.12)' }} disabled={saving} onClick={() => void download()}><Icon name="download" size={18} /> {saving ? 'جاري الحفظ…' : 'تنزيل صورة التكت'}</button>
           {!cancelled && !boarded && !past ? (
             <button className="btn sm" style={{ background: 'rgba(255,255,255,.12)' }} onClick={() => setConfirmCancel(true)}><Icon name="x" size={18} /> إلغاء الحجز</button>
@@ -469,9 +477,7 @@ export function Profile() {
     ['wallet', card ? `المحفظة · بطاقة ${card.first4} ••••` : 'المحفظة', () => go('wallet')],
     ['ticket', 'رحلاتي', () => go('myTrips')],
     ['gift', 'المكافآت والكوبونات', () => go('rewards')],
-    ['hotel', 'الفنادق', () => go('hotels')],
-    ['van', 'كوستر خاص', () => go('coaster')],
-    ['pin', 'الكراجات', () => go('garages')],
+    ['shield', 'سياسة الخصوصية والاستخدام', () => go('policy')],
     ['wheel', 'جرّب تطبيق السائق', () => { set({ role: null }); reset('login'); go('login', { driver: true }); }],
     ['info', 'عن النسخة التجريبية', () => setAbout(true)],
     ['refresh', 'مسح بيانات التجربة', () => setWipe(true)],

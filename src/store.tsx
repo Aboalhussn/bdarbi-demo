@@ -29,6 +29,7 @@ export interface DriverTripDraft {
   price: number;
   arrive: string;
   garageId?: string;
+  endGarageId?: string;
 }
 
 export interface SeatRequest {
@@ -54,6 +55,8 @@ interface Persisted {
   usedCoupons: string[];
   avatar: string; // small JPEG data URL, '' when none
   password: string;
+  email: string;
+  gender: '' | 'male' | 'female';
   card: SavedCard | null;
 }
 
@@ -91,6 +94,8 @@ const initial: Persisted = {
   usedCoupons: [],
   avatar: '',
   password: '',
+  email: '',
+  gender: '',
   card: null,
 };
 

@@ -83,7 +83,7 @@ export function DriverHome() {
                 <div className="num" style={{ fontWeight: 800, fontSize: 20, color: 'var(--navy)' }}><Time v={t.time} /></div>
                 <div className="grow">
                   <div className="bold">{t.from} ← {t.to}</div>
-                  <div className="small muted">{longDate(t.date)} · {t.garageId ? garageById(t.garageId).name + ' · ' : ''}يوصل {t.arrive ? fmt12(t.arrive) : ''} · {t.seats} مقعد · <span className="num">{money(t.price)}</span> د.ع</div>
+                  <div className="small muted">{longDate(t.date)} · {t.garageId ? garageById(t.garageId).name + (t.endGarageId ? ' ← ' + garageById(t.endGarageId).name : '') + ' · ' : ''}يوصل {t.arrive ? fmt12(t.arrive) : ''} · {t.seats} مقعد · <span className="num">{money(t.price)}</span> د.ع</div>
                 </div>
                 <span className="pill ok">منشورة</span>
               </div>
@@ -447,6 +447,7 @@ export function DriverAddTrip() {
   const [to, setTo] = useState('البصرة');
   const [fromGarage, setFromGarage] = useState('');
   const [toGarage, setToGarage] = useState('');
+  const [endGarage, setEndGarage] = useState(garagesIn('البصرة').length === 1 ? garagesIn('البصرة')[0].id : '');
   const [round, setRound] = useState(false);
   const [date, setDate] = useState(addDays(todayIso(), 1));
   const [time, setTime] = useState('08:00');
@@ -469,12 +470,14 @@ export function DriverAddTrip() {
       const other = CITIES.find((x) => x !== c)!;
       setTo(other);
       setToGarage('');
+      setEndGarage(garagesIn(other).length === 1 ? garagesIn(other)[0].id : '');
     }
     setErr('');
   };
   const changeTo = (c: string) => {
     setTo(c);
     setToGarage(garagesIn(c).length === 1 ? garagesIn(c)[0].id : '');
+    setEndGarage(garagesIn(c).length === 1 ? garagesIn(c)[0].id : '');
     setErr('');
   };
 
@@ -487,6 +490,8 @@ export function DriverAddTrip() {
 
   const next = () => {
     if (step === 1 && !fromGarage) return setErr(`اختار كراج الانطلاق في ${from}`);
+    if (step === 1 && !endGarage) return setErr(`اختار نقطة الانتهاء في ${to}`);
+    if (step === 1 && !toGarage) setToGarage(endGarage);
     if (step === 2) {
       const p = Number(price.replace(/[^0-9]/g, ''));
       if (!p || p < 1000) return setErr('اكتب سعر المقعد');
@@ -516,8 +521,8 @@ export function DriverAddTrip() {
       if (clash) return setErr(`${round ? (leg === legs[0] ? 'الذهاب: ' : 'الإياب: ') : ''}عندك رحلة بنفس الوقت — ${clash.label} · ${longDate(clash.date)} · ${fmt12(clash.time)}`);
     }
     const base = Date.now();
-    const out = { id: 'd' + base, from, to, date, time, kind: v.kind, seats: v.seats, price: p, arrive, garageId: fromGarage };
-    const ret = { id: 'd' + (base + 1), from: to, to: from, date: backDate, time: backTime, kind: v.kind, seats: v.seats, price: p, arrive: backArrive, garageId: toGarage };
+    const out = { id: 'd' + base, from, to, date, time, kind: v.kind, seats: v.seats, price: p, arrive, garageId: fromGarage, endGarageId: endGarage };
+    const ret = { id: 'd' + (base + 1), from: to, to: from, date: backDate, time: backTime, kind: v.kind, seats: v.seats, price: p, arrive: backArrive, garageId: toGarage, endGarageId: fromGarage };
     set({ driverTrips: [...driverTrips, out, ...(round ? [ret] : [])] });
     showToast(round ? 'انضافت رحلتين: الذهاب والإياب' : 'انضافت الرحلة وصارت تطلع للمسافرين');
     back();
@@ -575,6 +580,8 @@ export function DriverAddTrip() {
               </div>
             </div>
             <GarageField label={`كراج الانطلاق في ${from}`} city={from} value={fromGarage} onChange={(id) => { setFromGarage(id); setErr(''); }} />
+            <GarageField label={`نقطة الانتهاء في ${to}`} placeholder="اختار نقطة الانتهاء" icon="pin" city={to} value={endGarage} onChange={(id) => { setEndGarage(id); setErr(''); }} />
+            <div className="tiny muted">نقطة الانتهاء تطلع للمسافرين، وعليها ينرسم طريق الباص بالخريطة.</div>
           </>
         ) : null}
 
@@ -615,7 +622,7 @@ export function DriverAddTrip() {
           <>
             <div className="card flat row gap10">
               <Icon name="bus" size={20} />
-              <span className="grow small"><b>{from} ← {to}</b> · {garageById(fromGarage).name} · <span className="num">{money(Number(price))}</span> د.ع{round ? ' · روحة ورجعة' : ''}</span>
+              <span className="grow small"><b>{from} ← {to}</b> · {garageById(fromGarage).name} ← {garageById(endGarage).name} · <span className="num">{money(Number(price))}</span> د.ع{round ? ' · روحة ورجعة' : ''}</span>
             </div>
             <h3 className="h3">{round ? 'موعد الروحة' : 'موعد الانطلاق'}</h3>
             <DateField label="يوم الحركة" value={date} min={todayIso()} onChange={(d) => { setDate(d); if (backDate < d) setBackDate(addDays(d, 1)); setErr(''); }} />
