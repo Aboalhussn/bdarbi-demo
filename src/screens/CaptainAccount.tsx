@@ -37,6 +37,66 @@ function useEarnings() {
   return { balance, cash, online, commission, ops };
 }
 
+type Period = 'day' | 'week' | 'month';
+
+/** Earnings by period. Today is live; the rest of the week and month is demo history. */
+function EarningsCard({ online, cash }: { online: number; cash: number }) {
+  const { trip } = useStore();
+  const [p, setP] = useState<Period>('day');
+  const todayTrips = trip.status === 'arrived' || online + cash > 0 ? 1 : 0;
+  const days = ['سبت', 'أحد', 'اثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة'];
+  const wd = (new Date().getDay() + 1) % 7; // Saturday = 0
+  const weekHist: [number, number][] = [[120000, 60000], [95000, 40000], [0, 0], [150000, 80000], [60000, 30000], [130000, 70000], [90000, 45000]];
+  const week = weekHist.map((v, i) => (i === wd ? [online, cash] as [number, number] : i < wd ? v : [0, 0] as [number, number]));
+  const monthWeeks: [number, number][] = [[520000, 260000], [610000, 300000], [480000, 240000], week.reduce<[number, number]>((a, v) => [a[0] + v[0], a[1] + v[1]], [0, 0])];
+  const sum = (list: [number, number][]) => list.reduce<[number, number]>((a, v) => [a[0] + v[0], a[1] + v[1]], [0, 0]);
+  const [on, ca] = p === 'day' ? [online, cash] : p === 'week' ? sum(week) : sum(monthWeeks);
+  const trips = p === 'day' ? todayTrips : p === 'week' ? week.filter((v) => v[0] + v[1] > 0).length : 3 * 6 + week.filter((v) => v[0] + v[1] > 0).length;
+  const total = on + ca;
+  const commission = Math.round(on * COMMISSION);
+  const bars = p === 'week' ? week.map((v, i) => ({ label: days[i], v: v[0] + v[1], on: v[0], now: i === wd })) : p === 'month' ? monthWeeks.map((v, i) => ({ label: `أسبوع ${i + 1}`, v: v[0] + v[1], on: v[0], now: i === 3 })) : [];
+  const max = Math.max(1, ...bars.map((b) => b.v));
+  return (
+    <div className="form-card" style={{ gap: 12 }}>
+      <div className="seg" role="tablist" aria-label="الفترة">
+        {([['day', 'اليوم'], ['week', 'الأسبوع'], ['month', 'الشهر']] as [Period, string][]).map(([id, l]) => (
+          <button key={id} role="tab" aria-selected={p === id} className={p === id ? 'on' : ''} onClick={() => setP(id)}>{l}</button>
+        ))}
+      </div>
+      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-end' }}>
+        <div>
+          <div className="tiny muted">دخلك {p === 'day' ? 'اليوم' : p === 'week' ? 'هالأسبوع' : 'هالشهر'}</div>
+          <div className="num" style={{ fontSize: 28, fontWeight: 800, color: 'var(--navy)', lineHeight: 1.3 }}>{money(total)} <span style={{ fontSize: 13 }}>د.ع</span></div>
+        </div>
+        <span className="pill info"><span className="num">{trips}</span>&nbsp;{trips === 1 ? 'رحلة' : 'رحلات'}</span>
+      </div>
+      <div className="split-bar" aria-hidden="true">
+        <i style={{ width: `${total ? (on / total) * 100 : 50}%` }} />
+      </div>
+      <div className="row small" style={{ justifyContent: 'space-between' }}>
+        <span className="row gap6"><span className="dot-k navy" /> إلكتروني <b className="num">{money(on)}</b></span>
+        <span className="row gap6"><span className="dot-k gold" /> نقدي <b className="num">{money(ca)}</b></span>
+      </div>
+      {bars.length ? (
+        <div className="bars" role="img" aria-label="الدخل حسب الأيام">
+          {bars.map((b) => (
+            <div key={b.label} className={`bar-col ${b.now ? 'now' : ''}`}>
+              <div className="bar-stack" style={{ height: `${(b.v / max) * 100}%` }}>
+                <i className="cash" style={{ flex: b.v - b.on }} />
+                <i className="online" style={{ flex: b.on }} />
+              </div>
+              <span>{b.label}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      <div className="divider" />
+      <div className="row small" style={{ justifyContent: 'space-between' }}><span className="muted">عمولة بدربي 5% (على الإلكتروني)</span><b className="num">−{money(commission)}</b></div>
+      <div className="row" style={{ justifyContent: 'space-between' }}><b>صافي ربحك</b><b className="num" style={{ color: 'var(--success)', fontSize: 17 }}>{money(total - commission)} د.ع</b></div>
+    </div>
+  );
+}
+
 export function CaptainWallet() {
   const { withdrawals, set, showToast, captainCard: card } = useStore();
   const e = useEarnings();
@@ -77,15 +137,7 @@ export function CaptainWallet() {
           </button>
         )}
 
-        <div className="row gap10">
-          {[[money(e.online), 'إلكتروني اليوم'], [money(e.cash), 'نقداً بيدك'], [money(e.commission), 'عمولة 5%']].map(([v, l]) => (
-            <div key={l} className="card grow center" style={{ padding: '12px 6px' }}>
-              <div className="num bold" style={{ fontSize: 16, color: 'var(--navy)' }}>{v}</div>
-              <div className="tiny muted">{l}</div>
-            </div>
-          ))}
-        </div>
-        <div className="tiny muted" style={{ lineHeight: 1.7 }}>الدفع الإلكتروني ينضاف لرصيدك بعد عمولة بدربي 5%. النقد تستلمه انت من الركاب كامل وبدون عمولة.</div>
+        <EarningsCard online={e.online} cash={e.cash} />
 
         <h2 className="h3">العمليات</h2>
         <div className="card" style={{ padding: '4px 14px' }}>

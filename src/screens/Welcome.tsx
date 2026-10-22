@@ -14,6 +14,7 @@ export function Splash() {
     const t = window.setTimeout(() => {
       if (role === 'passenger') reset('home');
       else if (role === 'driver') reset('driverHome');
+      else if (role === 'agency') reset('agencyHome');
       else if (onboarded) reset('login');
       else reset('onboardLocation');
     }, 3000);
@@ -149,7 +150,8 @@ export function PhoneField({ value, onChange, error }: { value: string; onChange
 
 export function Login() {
   const { go, reset, set, route } = useStore();
-  const driver = route.params?.driver === true;
+  const agency = route.params?.agency === true;
+  const driver = route.params?.driver === true || agency;
   const [phone, setPhone] = useState('');
   const [pass, setPass] = useState('');
   const [show, setShow] = useState(false);
@@ -162,7 +164,7 @@ export function Login() {
     const pe = pass.length < 4 ? 'كلمة السر 4 أحرف أو أكثر' : '';
     setPassErr(pe);
     if (e || pe) return;
-    go('otp', { phone, driver });
+    go('otp', { phone, driver: driver && !agency, agency });
   };
 
   return (
@@ -180,8 +182,8 @@ export function Login() {
                 <span style={{ fontFamily: 'var(--display)', fontWeight: 800, fontSize: 22 }}>بدربي</span>
               </div>
             )}
-            <h1 style={{ fontSize: 30, fontWeight: 800, marginTop: 8, lineHeight: 1.35 }}>{driver ? 'كابتن بدربي' : 'أهلاً بيك من جديد'}</h1>
-            <p style={{ margin: '8px 0 0', color: 'rgba(255,255,255,.78)' }}>{driver ? 'سجّل دخولك حتى تدير رحلاتك وتمسح تذاكر الركاب.' : 'سجّل دخولك برقم موبايلك وخلّي الرحلة علينا.'}</p>
+            <h1 style={{ fontSize: 30, fontWeight: 800, marginTop: 8, lineHeight: 1.35 }}>{agency ? 'مكاتب السفر' : driver ? 'كابتن بدربي' : 'أهلاً بيك من جديد'}</h1>
+            <p style={{ margin: '8px 0 0', color: 'rgba(255,255,255,.78)' }}>{agency ? 'أدر رحلات مكتبك وسواقك ومركباتك من مكان واحد.' : driver ? 'سجّل دخولك حتى تدير رحلاتك وتمسح تذاكر الركاب.' : 'سجّل دخولك برقم موبايلك وخلّي الرحلة علينا.'}</p>
           </div>
           <img src={driver ? './img/driver.png' : './img/mascot.png'} alt="" style={{ position: 'absolute', left: 18, bottom: driver ? 0 : -60, height: driver ? 200 : 290, width: 'auto' }} />
         </div>
@@ -205,7 +207,7 @@ export function Login() {
           </div>
           <button className="btn" onClick={submit}>تسجيل الدخول</button>
           <div className="small muted center" style={{ marginTop: 6 }}>نسخة تجريبية: أي رقم صحيح وأي كلمة سر تشتغل</div>
-          {driver ? (
+          {driver && !agency ? (
             <button className="btn ghost" style={{ marginTop: 14 }} onClick={() => go('captainRegister')}>
               <Icon name="user" size={20} /> كابتن جديد؟ سجّل هنا
             </button>
@@ -220,7 +222,7 @@ export function Login() {
               <button className="btn ghost" onClick={() => go('register')}>
                 <Icon name="user" size={20} /> إنشاء حساب جديد
               </button>
-              <div className="row" style={{ justifyContent: 'center', gap: 18, margin: '10px 0 30px' }}>
+              <div className="row" style={{ justifyContent: 'center', gap: 18, margin: '10px 0 8px' }}>
                 <button
                   className="link muted"
                   onClick={() => {
@@ -233,6 +235,9 @@ export function Login() {
                 <span style={{ width: 1, height: 18, background: '#E4E2EE' }} />
                 <button className="link" onClick={() => go('login', { driver: true })}>دخول الكابتن</button>
               </div>
+              <button className="link small" style={{ margin: '6px auto 30px', display: 'flex', alignItems: 'center', gap: 6 }} onClick={() => go('login', { agency: true })}>
+                <Icon name="bus" size={16} /> دخول مكاتب السفر
+              </button>
             </>
           )}
         </div>
@@ -299,6 +304,7 @@ export function Otp() {
   const { route, back, reset, set, captain } = useStore();
   const phone = String(route.params?.phone ?? '');
   const driver = route.params?.driver === true;
+  const agency = route.params?.agency === true;
   const name = route.params?.name ? String(route.params.name) : undefined;
   const [code, setCode] = useState('');
   const [left, setLeft] = useState(42);
@@ -319,11 +325,16 @@ export function Otp() {
         reset('captainPending');
         return;
       }
+      if (agency) {
+        set({ role: 'agency' });
+        reset('agencyHome');
+        return;
+      }
       set({ role: driver ? 'driver' : 'passenger', ...(driver ? {} : { phone }), ...(name ? { name } : {}) });
       reset(driver ? 'driverHome' : 'home');
     }, 600);
     return () => window.clearTimeout(t);
-  }, [code, driver, name, phone, reset, set]);
+  }, [code, driver, agency, name, phone, reset, set]);
 
   const press = (d: string) => {
     if (checking) return;

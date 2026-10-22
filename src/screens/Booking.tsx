@@ -21,7 +21,7 @@ function takenSeats(trip: Trip, date: string, bookings: Booking[]) {
 }
 
 export function Seats() {
-  const { route, go, bookings } = useStore();
+  const { route, go, bookings, gender } = useStore();
   const trip = tripById(String(route.params?.tripId)) ?? null;
   const date = String(route.params?.date ?? todayIso());
   const [sel, setSel] = useState<number[]>([]);
@@ -35,8 +35,14 @@ export function Seats() {
   const limit = family ? Math.min(wanted > 1 ? wanted : FAMILY_MAX, trip.capacity) : 1;
   const exact = family && wanted > 1;
 
+  // Ladies' seats are closed to a man travelling alone; a family can seat its women there.
+  const ladyLocked = (n: number) => trip.ladies.includes(n) && !family && gender === 'male';
   const pick = (n: number) => {
     if (taken.has(n)) return;
+    if (ladyLocked(n)) {
+      setWarn('هذا المقعد للنساء بس. اختار مقعد ثاني.');
+      return;
+    }
     if (sel.includes(n)) {
       setSel(sel.filter((x) => x !== n));
       setWarn('');
@@ -60,8 +66,8 @@ export function Seats() {
     const on = sel.includes(n);
     const lady = trip.ladies.includes(n);
     return (
-      <button key={n} className={`seat ${on ? 'on' : isTaken ? 'taken' : lady ? 'lady' : ''}`} disabled={isTaken} aria-pressed={on} aria-label={`مقعد ${n}${isTaken ? ' محجوز' : ''}`} onClick={() => pick(n)}>
-        {n}
+      <button key={n} className={`seat ${on ? 'on' : isTaken ? 'taken' : lady ? 'lady' : ''} ${ladyLocked(n) && !isTaken ? 'locked' : ''}`} disabled={isTaken} aria-pressed={on} aria-label={`مقعد ${n}${isTaken ? ' محجوز' : lady ? ' للنساء' : ''}`} onClick={() => pick(n)}>
+        {ladyLocked(n) && !isTaken ? <Icon name="lock" size={14} /> : n}
       </button>
     );
   };
@@ -82,7 +88,7 @@ export function Seats() {
     }
   }
 
-  const hint = warn || (family ? (exact ? `اختار ${limit} مقاعد لأفراد العائلة، يفضّل جنب بعض.` : 'عائلة: تكدر تحجز أكثر من مقعد بنفس الحجز.') : 'مسافر وحده: مقعد واحد. مقاعد النساء باللون الوردي.');
+  const hint = warn || (family ? (exact ? `اختار ${limit} مقاعد لأفراد العائلة، يفضّل جنب بعض.` : 'عائلة: تكدر تحجز أكثر من مقعد بنفس الحجز.') : (gender === 'male' ? 'مسافر وحده: مقعد واحد. مقاعد النساء (الوردية) مقفولة.' : 'مسافر وحده: مقعد واحد. مقاعد النساء باللون الوردي.'));
 
   return (
     <div className="screen">
@@ -122,7 +128,7 @@ export function Seats() {
       </div>
       <div className="bottombar stack gap10" style={{ borderRadius: '28px 28px 0 0', boxShadow: '0 -8px 30px rgba(11,5,88,.08)', borderTop: 0 }}>
         <div className="seg" role="radiogroup" aria-label="نوع المسافرين">
-          <button role="radio" aria-checked={!family} className={!family ? 'on' : ''} onClick={() => { setFamily(false); setSel(sel.slice(0, 1)); setWarn(''); }}>مسافر وحده</button>
+          <button role="radio" aria-checked={!family} className={!family ? 'on' : ''} onClick={() => { setFamily(false); setSel(sel.filter((x) => !(trip.ladies.includes(x) && gender === 'male')).slice(0, 1)); setWarn(''); }}>مسافر وحده</button>
           <button role="radio" aria-checked={family} className={family ? 'on' : ''} onClick={() => { setFamily(true); setWarn(''); }}>عائلة</button>
         </div>
         <div className="row" style={{ justifyContent: 'space-between' }}>
@@ -164,7 +170,7 @@ const BASE_PAYMENTS = [
 ];
 
 export function Checkout() {
-  const { route, name, phone, addBooking, reset, go, usedCoupons, set, bookings, card } = useStore();
+  const { route, name, phone, addBooking, reset, go, usedCoupons, set, bookings, card, gender } = useStore();
   const PAYMENTS = [
     ...BASE_PAYMENTS,
     card
@@ -174,7 +180,14 @@ export function Checkout() {
   const trip = tripById(String(route.params?.tripId));
   const date = String(route.params?.date ?? todayIso());
   const seats = (route.params?.seats as number[] | undefined) ?? [];
-  const [fullName, setFullName] = useState(name && name !== 'ضيف' ? name : '');
+  const family = route.params?.family === true;
+  const [people, setPeople] = useState<{ seat: number; name: string; gender: '' | 'male' | 'female' }[]>(() =>
+    seats.map((seat, i) => {
+      const lady = !!tripById(String(route.params?.tripId))?.ladies.includes(seat);
+      return { seat, name: i === 0 && name && name !== 'ضيف' ? name : '', gender: lady ? 'female' : i === 0 ? gender : '' };
+    }),
+  );
+  const [pErr, setPErr] = useState<Record<number, string>>({});
   const [pay, setPay] = useState('cash');
   const [coupon, setCoupon] = useState('');
   const [applied, setApplied] = useState<string | null>(null);
@@ -198,9 +211,22 @@ export function Checkout() {
     setCErr('');
   };
 
+  const edit = (seat: number, patch: Partial<(typeof people)[number]>) => {
+    setPeople(people.map((p) => (p.seat === seat ? { ...p, ...patch } : p)));
+    setPErr({ ...pErr, [seat]: '' });
+    setNErr('');
+  };
+
   const confirm = () => {
-    if (fullName.trim().length < 2) {
-      setNErr('اكتب اسم المسافر');
+    const e: Record<number, string> = {};
+    people.forEach((p) => {
+      if (p.name.trim().split(/\s+/).filter(Boolean).length < 2) e[p.seat] = 'اكتب الاسم الثنائي على الأقل';
+      else if (!p.gender) e[p.seat] = 'اختار رجل أو امرأة';
+      else if (trip.ladies.includes(p.seat) && p.gender !== 'female') e[p.seat] = 'هذا مقعد نساء';
+    });
+    setPErr(e);
+    if (Object.keys(e).length) {
+      setNErr('كمّل بيانات كل المسافرين');
       return;
     }
     // Seats could have been taken meanwhile — check again before booking.
@@ -209,22 +235,27 @@ export function Checkout() {
       setNErr('واحد من المقاعد انحجز هسه، ارجع واختار غيره.');
       return;
     }
+    const draft: Omit<Booking, 'code' | 'createdAt'> = {
+      tripId: trip.id,
+      date,
+      seats,
+      name: people[0].name.trim(),
+      phone,
+      total,
+      discount,
+      pay: PAYMENTS.find((p) => p.id === pay)!.label,
+      status: 'confirmed',
+      passengers: people.map((p) => ({ seat: p.seat, name: p.name.trim(), gender: p.gender as 'male' | 'female' })),
+    };
+    // Electronic payments go through the payment screen first; cash books right away.
+    if (pay !== 'cash') {
+      go('pay', { draft, method: pay, coupon: applied });
+      return;
+    }
     setBusy(true);
     window.setTimeout(() => {
       const code = newCode();
-      addBooking({
-        code,
-        tripId: trip.id,
-        date,
-        seats,
-        name: fullName.trim(),
-        phone,
-        total,
-        discount,
-        pay: PAYMENTS.find((p) => p.id === pay)!.label,
-        status: 'confirmed',
-        createdAt: Date.now(),
-      });
+      addBooking({ ...draft, code, createdAt: Date.now() });
       if (applied) set({ usedCoupons: [...usedCoupons, applied] });
       reset('home');
       go('ticket', { code, fresh: true });
@@ -260,9 +291,27 @@ export function Checkout() {
           <div className="row small" style={{ justifyContent: 'space-between' }}><span className="muted">المقاعد</span><b>{seats.join('، ')}</b></div>
         </div>
 
-        <div className="field">
-          <label htmlFor="pname">اسم المسافر</label>
-          <input id="pname" className={`input ${nErr ? 'bad' : ''}`} placeholder="الاسم الثلاثي" value={fullName} onChange={(e) => { setFullName(e.target.value); setNErr(''); }} />
+        <div className="stack gap8">
+          <span className="label">{people.length > 1 ? `بيانات المسافرين (${people.length})` : 'بيانات المسافر'}</span>
+          {people.map((p, i) => {
+            const lady = trip.ladies.includes(p.seat);
+            return (
+              <div key={p.seat} className={`pax ${pErr[p.seat] ? 'bad' : ''}`}>
+                <div className="row gap8">
+                  <span className="pax-seat num">{p.seat}</span>
+                  <b className="grow">{people.length > 1 ? `المسافر ${i + 1}` : 'المسافر'}{i === 0 && people.length > 1 ? ' (صاحب الحجز)' : ''}</b>
+                  {lady ? <span className="pill" style={{ background: '#F7D9DE', color: '#8C2A3C', height: 24, fontSize: 11 }}>مقعد نساء</span> : null}
+                </div>
+                <input className="input" aria-label={`اسم المسافر بمقعد ${p.seat}`} placeholder="الاسم الثلاثي" value={p.name} onChange={(e) => edit(p.seat, { name: e.target.value.slice(0, 40) })} />
+                <div className="seg small-seg" role="radiogroup" aria-label="الجنس">
+                  <button role="radio" aria-checked={p.gender === 'male'} className={p.gender === 'male' ? 'on' : ''} disabled={lady} onClick={() => edit(p.seat, { gender: 'male' })}>رجل</button>
+                  <button role="radio" aria-checked={p.gender === 'female'} className={p.gender === 'female' ? 'on' : ''} onClick={() => edit(p.seat, { gender: 'female' })}>امرأة</button>
+                </div>
+                {pErr[p.seat] ? <div className="err">{pErr[p.seat]}</div> : null}
+              </div>
+            );
+          })}
+          {family && people.length > 1 ? <div className="tiny muted">الأسماء تطلع للكابتن بقائمة الركاب، وكل واحد يصعد بنفس التذكرة.</div> : null}
           <div className="err">{nErr}</div>
         </div>
 
@@ -301,7 +350,7 @@ export function Checkout() {
         </div>
       </div>
       <div className="bottombar">
-        <button className="btn" disabled={busy} onClick={confirm}>{busy ? 'جاري الحجز…' : `ثبّت الحجز · ${money(total)} د.ع`}</button>
+        <button className="btn" disabled={busy} onClick={confirm}>{busy ? 'جاري الحجز…' : pay === 'cash' ? `ثبّت الحجز · ${money(total)} د.ع` : `ادفع ${money(total)} د.ع`}</button>
       </div>
     </div>
   );
@@ -496,6 +545,7 @@ export function Profile() {
     ['gift', 'المكافآت والكوبونات', () => go('rewards')],
     ['shield', 'سياسة الخصوصية والاستخدام', () => go('policy')],
     ['wheel', 'جرّب تطبيق كابتن بدربي', () => { set({ role: null }); reset('login'); go('login', { driver: true }); }],
+    ['bus', 'جرّب حساب مكاتب السفر', () => { set({ role: null }); reset('login'); go('login', { agency: true }); }],
     ['info', 'عن النسخة التجريبية', () => setAbout(true)],
     ['refresh', 'مسح بيانات التجربة', () => setWipe(true)],
     ['chat', 'الدعم', () => go('support', { as: 'passenger' })],

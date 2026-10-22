@@ -3,13 +3,16 @@ import { Icon, Logo } from '../icons';
 import { useStore, type ChatMsg } from '../store';
 import { shrinkImage } from './Account';
 
+type Who = 'passenger' | 'captain' | 'agency';
+
 const TOPICS = {
   passenger: ['مشكلة بحجز', 'أريد أسترجع فلوسي', 'الباص تأخر', 'نسيت غرض بالباص', 'مشكلة بالدفع'],
   captain: ['سحب الرصيد', 'تحديث السنوية أو السيارة', 'مشكلة براكب', 'إلغاء رحلة', 'مشكلة بالتطبيق'],
+  agency: ['إضافة مركبة جديدة', 'سائق ما يگدر يدخل', 'تحويل أرباح المكتب', 'إلغاء رحلة', 'مشكلة بالتطبيق'],
 };
 
 /** Demo replies — in the real app a support agent answers. */
-function replyTo(text: string, as: 'passenger' | 'captain', hasImage: boolean) {
+function replyTo(text: string, as: Who, hasImage: boolean) {
   const t = text.replace(/[ًٌٍَُِّْ]/g, '');
   const ref = `#S-${String(Date.now()).slice(-5)}`;
   if (hasImage && !t.trim()) return 'وصلتنا الصورة، شكراً. اشرحلنا شنو المشكلة حتى نساعدك أسرع.';
@@ -18,7 +21,9 @@ function replyTo(text: string, as: 'passenger' | 'captain', hasImage: boolean) {
   if (/استرج|فلوس|رجع/.test(t)) return as === 'passenger'
     ? 'إذا دفعت إلكترونياً وانلغى الحجز، المبلغ يرجع لنفس طريقة الدفع خلال 24–72 ساعة. اكتبلي رمز الحجز (6 خانات) حتى أتابعه.'
     : 'ترجيع فلوس الركاب يصير تلقائياً من بدربي، ما تحتاج تسوي شي.';
-  if (/سحب|رصيد/.test(t)) return 'طلبات السحب تنحوّل خلال 24 ساعة بأيام الدوام. إذا مرت أكثر، اكتبلي رقم المحفظة اللي سحبت عليها.';
+  if (/مركبة|مركبه/.test(t) && as === 'agency') return 'ارفعلنا صورة سنوية المركبة الجديدة هنا (زر 📎) ورقم لوحتها، والإدارة تضيفها لأسطولك خلال يوم.';
+  if (/سائق|سايق/.test(t) && as === 'agency') return 'تأكد إن رقم السائق نفس الرقم اللي ضفته بالأسطول. إذا بعده ما يگدر يدخل، اكتبلي رقمه ونفعّله يدوياً.';
+  if (/سحب|رصيد|أرباح|ارباح|تحويل/.test(t)) return 'طلبات السحب تنحوّل خلال 24 ساعة بأيام الدوام. إذا مرت أكثر، اكتبلي رقم المحفظة اللي سحبت عليها.';
   if (/سنوية|سيارة|مركبة|اجازة|إجازة/.test(t)) return 'ارفعلي صورة السنوية أو الإجازة الجديدة هنا (زر 📎)، والإدارة تحدّثها وتبلغك.';
   if (/تأخر|تاخر|الباص|وين/.test(t)) return 'آسفين على التأخير 🙏 تكدر تتابع الباص من التذكرة ← «تتبع الباص». إذا الكابتن ما يرد، اكتبلي رمز الحجز ونتصل بيه.';
   if (/نسيت|غرض|جنطة|شنطة/.test(t)) return 'اكتبلي رمز الحجز ووصف الغرض، ونتواصل ويا الكابتن حتى يرجعه إلك.';
@@ -38,7 +43,8 @@ function clock(ms: number) {
 
 export function Support() {
   const { route, support, set, back, showToast } = useStore();
-  const as: 'passenger' | 'captain' = route.params?.as === 'captain' ? 'captain' : 'passenger';
+  const as: Who = route.params?.as === 'captain' ? 'captain' : route.params?.as === 'agency' ? 'agency' : 'passenger';
+  const who = as === 'captain' ? 'كابتن بدربي' : as === 'agency' ? 'مكاتب السفر' : 'بدربي';
   const msgs = support[as];
   const [text, setText] = useState('');
   const [typing, setTyping] = useState(false);
@@ -75,7 +81,7 @@ export function Support() {
         <button className="iconbtn" aria-label="رجوع" onClick={back}><Icon name="back" size={20} /></button>
         <span className="chat-avatar"><Logo size={26} /></span>
         <div className="grow">
-          <div className="title" style={{ fontSize: 17 }}>دعم {as === 'captain' ? 'كابتن بدربي' : 'بدربي'}</div>
+          <div className="title" style={{ fontSize: 17 }}>دعم {who}</div>
           <div className="sub row gap6"><span className="online-dot" /> {typing ? 'يكتب…' : 'متصل · نرد عادةً خلال دقائق'}</div>
         </div>
       </header>
@@ -84,7 +90,7 @@ export function Support() {
         <div className="chat-day">اليوم</div>
         <div className="bubble-row support">
           <div className="msg-b">
-            هلا بيك 👋 هذا دعم {as === 'captain' ? 'كابتن بدربي' : 'بدربي'}. شلون نكدر نساعدك؟ اختار موضوع أو اكتب رسالتك.
+            هلا بيك 👋 هذا دعم {who}. شلون نكدر نساعدك؟ اختار موضوع أو اكتب رسالتك.
             <span className="b-time">{clock(msgs[0]?.at ?? Date.now())}</span>
           </div>
         </div>

@@ -38,10 +38,16 @@ const DRIVER_TABS = [
   { key: 'driverProfile', icon: 'user', label: 'ملفي' },
 ];
 
-export function TabBar({ active, driver = false }: { active: string; driver?: boolean }) {
+const AGENCY_TABS = [
+  { key: 'agencyHome', icon: 'bus', label: 'الرحلات' },
+  { key: 'agencyFleet', icon: 'users', label: 'الأسطول' },
+  { key: 'agencyProfile', icon: 'user', label: 'حسابي' },
+];
+
+export function TabBar({ active, driver = false, agency = false }: { active: string; driver?: boolean; agency?: boolean }) {
   const { reset, go, requests } = useStore();
-  const tabs = driver ? DRIVER_TABS : PASSENGER_TABS;
-  const home = driver ? 'driverHome' : 'home';
+  const tabs = agency ? AGENCY_TABS : driver ? DRIVER_TABS : PASSENGER_TABS;
+  const home = agency ? 'agencyHome' : driver ? 'driverHome' : 'home';
   const newReq = requests.filter((r) => r.status === 'new').length;
   return (
     <div className="tabbar">

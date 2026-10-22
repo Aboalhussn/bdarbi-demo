@@ -1,7 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { seedAgencyTrips, span, SEED_DRIVERS, type AgencyDriver, type AgencyTrip } from './agency';
 import { DEMO_PASSENGERS, DRIVER_TRIP_ID, TRIPS, fmt12, todayIso, tripById, type VehicleKind } from './data';
 
-export type Role = 'passenger' | 'driver';
+export type Role = 'passenger' | 'driver' | 'agency';
+
+export interface Passenger {
+  seat: number;
+  name: string;
+  gender: 'male' | 'female';
+}
 
 export interface Booking {
   code: string;
@@ -18,6 +25,7 @@ export interface Booking {
   boardedAt?: string;
   createdAt: number;
   rating?: Rating;
+  passengers?: Passenger[]; // one per seat
 }
 
 export interface Rating {
@@ -112,7 +120,9 @@ interface Persisted {
   captain: CaptainAccount | null;
   captainProfile: CaptainProfile;
   withdrawals: Withdrawal[];
-  support: { passenger: ChatMsg[]; captain: ChatMsg[] };
+  support: { passenger: ChatMsg[]; captain: ChatMsg[]; agency: ChatMsg[] };
+  agencyTrips: AgencyTrip[];
+  agencyDrivers: AgencyDriver[];
   captainNotifs: Notif[];
   captainCard: SavedCard | null; // where the captain's earnings are paid out
   goalsClaimed: string[]; // ids of captain challenges whose reward was collected
@@ -188,7 +198,9 @@ const initial: Persisted = {
   captain: null,
   captainProfile: { name: '', phone: '', email: '', gender: '', avatar: '', password: '' },
   withdrawals: [],
-  support: { passenger: [], captain: [] },
+  support: { passenger: [], captain: [], agency: [] },
+  agencyTrips: seedAgencyTrips(),
+  agencyDrivers: SEED_DRIVERS,
   captainNotifs: [
     { id: 'cn1', at: 0, icon: 'trophy', title: 'تحدي جديد 🏆', body: 'خلّص 3 رحلات خلال يومين واربح 25,000 د.ع تنضاف لمحفظتك.', read: false, tone: 'ok', link: { name: 'driverGoals' } },
     { id: 'cn0', at: 0, icon: 'star', title: 'تقييمك ★ 4.9', body: 'تقييمك عالي، فرحلاتك تطلع بأول نتائج البحث للمسافرين. كمّل هيج!', read: true, tone: 'info' },
@@ -200,7 +212,13 @@ const initial: Persisted = {
 function load(): Persisted {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) return { ...initial, ...(JSON.parse(raw) as Partial<Persisted>) };
+    if (raw) {
+      const saved = JSON.parse(raw) as Partial<Persisted>;
+      const merged = { ...initial, ...saved, support: { ...initial.support, ...(saved.support ?? {}) } };
+      // Demo agency trips are placed around the first run — refresh them once every one has finished.
+      if (!merged.agencyTrips.some((t) => span(t.date, t.time, t.hours)[1] > Date.now() / 60000)) merged.agencyTrips = seedAgencyTrips();
+      return merged;
+    }
   } catch {
     /* storage not available — start fresh */
   }

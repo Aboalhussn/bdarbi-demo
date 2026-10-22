@@ -15,6 +15,8 @@ import { CaptainPending, CaptainRegister } from './screens/Captain';
 import { DriverAddTrip, DriverHome, DriverRequests, DriverScan, DriverScanResult, DriverTrip } from './screens/Driver';
 import { CaptainVehicle, CaptainWallet, DriverGoals, DriverProfile } from './screens/CaptainAccount';
 import { Support } from './screens/Support';
+import { Pay } from './screens/Pay';
+import { AgencyAddTrip, AgencyFleet, AgencyHome, AgencyProfile } from './screens/Agency';
 
 const SCREENS: Record<string, ComponentType> = {
   splash: Splash,
@@ -42,6 +44,11 @@ const SCREENS: Record<string, ComponentType> = {
   captainPending: CaptainPending,
   notifications: Notifications,
   support: Support,
+  pay: Pay,
+  agencyHome: AgencyHome,
+  agencyAddTrip: AgencyAddTrip,
+  agencyFleet: AgencyFleet,
+  agencyProfile: AgencyProfile,
   captainWallet: CaptainWallet,
   captainVehicle: CaptainVehicle,
   driverGoals: DriverGoals,
@@ -58,7 +65,7 @@ const SCREENS: Record<string, ComponentType> = {
 };
 
 // Screens whose top edge is navy get a navy status bar; the rest get white.
-const NAVY_TOP = new Set(['splash', 'login', 'trips', 'ticket', 'profile', 'driverHome', 'driverProfile', 'driverScan']);
+const NAVY_TOP = new Set(['splash', 'login', 'trips', 'ticket', 'profile', 'driverHome', 'driverProfile', 'driverScan', 'driverGoals', 'agencyHome', 'agencyProfile']);
 
 export default function App() {
   const { route, stackDepth, back, toast } = useStore();

@@ -263,7 +263,7 @@ export function DriverTrip() {
               <span className="ic" style={at ? { background: 'var(--success-bg)', color: 'var(--success)' } : undefined}><Icon name={at ? 'check' : 'user'} size={20} /></span>
               <span className="grow">
                 <span className="bold" style={{ display: 'block' }}>{b.name}</span>
-                <span className="tiny muted">مقاعد {b.seats.join('، ')} · {b.pay} · <span className="code" style={{ letterSpacing: 1 }}>{b.code}</span></span>
+                <span className="tiny muted">{b.passengers && b.passengers.length > 1 ? `${b.passengers.length} مسافرين · ` : ''}مقاعد {b.seats.join('، ')} · {b.pay} · <span className="code" style={{ letterSpacing: 1 }}>{b.code}</span></span>
               </span>
               <span className={`pill ${b.status === 'cancelled' ? 'bad' : at ? 'ok' : 'info'}`}>{b.status === 'cancelled' ? 'ملغي' : at ? `صعد ${fmt12(at)}` : 'ما صعد'}</span>
             </button>
@@ -275,6 +275,13 @@ export function DriverTrip() {
         {sel ? (
           <div className="stack gap10">
             <h2 className="h2">{sel.name}</h2>
+            {sel.passengers && sel.passengers.length > 1 ? (
+              <div className="card flat stack gap6">
+                {sel.passengers.map((p) => (
+                  <div key={p.seat} className="row small gap8"><span className="pax-seat num" style={{ width: 28, height: 24, fontSize: 11 }}>{p.seat}</span><b className="grow">{p.name}</b><span className="muted">{p.gender === 'female' ? 'امرأة' : 'رجل'}</span></div>
+                ))}
+              </div>
+            ) : null}
             <div className="row gap8" style={{ flexWrap: 'wrap' }}>
               <span className="pill info">مقاعد {sel.seats.join('، ')}</span>
               <span className="pill info">{sel.pay}</span>
