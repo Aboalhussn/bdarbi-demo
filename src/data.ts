@@ -1,6 +1,6 @@
 // Demo data. Everything lives on the phone — there is no server in this demo.
 
-export type VehicleKind = 'باص' | 'VIP' | 'كوستر' | 'سيارة';
+export type VehicleKind = 'باص' | 'VIP' | 'كوستر' | 'سيارة' | 'GMC';
 
 export interface Garage {
   id: string;
@@ -76,7 +76,7 @@ const rows: Record<string, Row[]> = {
 export const DESTINATIONS = Object.keys(rows);
 
 function capacityOf(kind: VehicleKind) {
-  return kind === 'سيارة' ? 4 : kind === 'كوستر' ? 24 : kind === 'VIP' ? 32 : 40;
+  return kind === 'سيارة' ? 4 : kind === 'GMC' ? 7 : kind === 'كوستر' ? 24 : kind === 'VIP' ? 32 : 40;
 }
 
 function priceOf(kind: VehicleKind, p: number) {

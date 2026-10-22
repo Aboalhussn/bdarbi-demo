@@ -18,7 +18,8 @@ export function Avatar({ size = 60, src }: { size?: number; src?: string }) {
   );
 }
 
-export function shrinkImage(file: File): Promise<string> {
+/** Reads a picked photo and crops it to w×h (centre crop), returned as a small JPEG data URL. */
+export function shrinkImage(file: File, w = 320, h = 320): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error('read'));
@@ -26,14 +27,19 @@ export function shrinkImage(file: File): Promise<string> {
       const img = new Image();
       img.onerror = () => reject(new Error('decode'));
       img.onload = () => {
-        const size = 320;
         const c = document.createElement('canvas');
-        c.width = size;
-        c.height = size;
+        c.width = w;
+        c.height = h;
         const ctx = c.getContext('2d');
         if (!ctx) return reject(new Error('canvas'));
-        const s = Math.min(img.width, img.height);
-        ctx.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
+        const target = w / h;
+        let sw = img.width;
+        let sh = img.width / target;
+        if (sh > img.height) {
+          sh = img.height;
+          sw = img.height * target;
+        }
+        ctx.drawImage(img, (img.width - sw) / 2, (img.height - sh) / 2, sw, sh, 0, 0, w, h);
         resolve(c.toDataURL('image/jpeg', 0.85));
       };
       img.src = String(reader.result);

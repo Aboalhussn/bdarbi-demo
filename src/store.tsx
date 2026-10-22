@@ -64,6 +64,7 @@ export interface CaptainAccount {
   submittedAt: number;
   vehicle: CaptainVehicle;
   docs: Record<string, string>;
+  docInfo?: Record<string, [string, string][]>; // what the app read from each document
 }
 
 export interface DriverTripDraft {
