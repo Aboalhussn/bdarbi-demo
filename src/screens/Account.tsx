@@ -18,7 +18,7 @@ export function Avatar({ size = 60, src }: { size?: number; src?: string }) {
   );
 }
 
-function shrinkImage(file: File): Promise<string> {
+export function shrinkImage(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error('read'));
@@ -42,7 +42,7 @@ function shrinkImage(file: File): Promise<string> {
   });
 }
 
-const PASS_RULES: [string, (p: string) => boolean][] = [
+export const PASS_RULES: [string, (p: string) => boolean][] = [
   ['6 أحرف على الأقل', (p) => p.length >= 6],
   ['حرف كبير (A-Z)', (p) => /[A-Z]/.test(p)],
   ['حرف صغير (a-z)', (p) => /[a-z]/.test(p)],
@@ -71,7 +71,7 @@ const LEVELS = [
   { label: 'قوي', color: '#13703D' },
 ];
 
-function PasswordMeter({ value }: { value: string }) {
+export function PasswordMeter({ value }: { value: string }) {
   const lvl = strength(value);
   const missing = PASS_RULES.filter(([, f]) => !f(value)).map(([label]) => label);
   return (

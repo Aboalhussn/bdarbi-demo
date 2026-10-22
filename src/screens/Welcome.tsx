@@ -180,7 +180,7 @@ export function Login() {
                 <span style={{ fontFamily: 'var(--display)', fontWeight: 800, fontSize: 22 }}>بدربي</span>
               </div>
             )}
-            <h1 style={{ fontSize: 30, fontWeight: 800, marginTop: 8, lineHeight: 1.35 }}>{driver ? 'دخول السائق' : 'أهلاً بيك من جديد'}</h1>
+            <h1 style={{ fontSize: 30, fontWeight: 800, marginTop: 8, lineHeight: 1.35 }}>{driver ? 'كابتن بدربي' : 'أهلاً بيك من جديد'}</h1>
             <p style={{ margin: '8px 0 0', color: 'rgba(255,255,255,.78)' }}>{driver ? 'سجّل دخولك حتى تدير رحلاتك وتمسح تذاكر الركاب.' : 'سجّل دخولك برقم موبايلك وخلّي الرحلة علينا.'}</p>
           </div>
           <img src={driver ? './img/driver.png' : './img/mascot.png'} alt="" style={{ position: 'absolute', left: 18, bottom: driver ? 0 : -60, height: driver ? 200 : 290, width: 'auto' }} />
@@ -205,6 +205,11 @@ export function Login() {
           </div>
           <button className="btn" onClick={submit}>تسجيل الدخول</button>
           <div className="small muted center" style={{ marginTop: 6 }}>نسخة تجريبية: أي رقم صحيح وأي كلمة سر تشتغل</div>
+          {driver ? (
+            <button className="btn ghost" style={{ marginTop: 14 }} onClick={() => go('captainRegister')}>
+              <Icon name="user" size={20} /> كابتن جديد؟ سجّل هنا
+            </button>
+          ) : null}
           {!driver && (
             <>
               <div className="row gap12" style={{ margin: '14px 0 4px', color: '#8F8CA3', fontSize: 14 }}>
@@ -226,7 +231,7 @@ export function Login() {
                   أكمل كضيف
                 </button>
                 <span style={{ width: 1, height: 18, background: '#E4E2EE' }} />
-                <button className="link" onClick={() => go('login', { driver: true })}>دخول السائق</button>
+                <button className="link" onClick={() => go('login', { driver: true })}>دخول الكابتن</button>
               </div>
             </>
           )}
@@ -291,7 +296,7 @@ export function Register() {
 }
 
 export function Otp() {
-  const { route, back, reset, set } = useStore();
+  const { route, back, reset, set, captain } = useStore();
   const phone = String(route.params?.phone ?? '');
   const driver = route.params?.driver === true;
   const name = route.params?.name ? String(route.params.name) : undefined;
@@ -309,7 +314,12 @@ export function Otp() {
     if (code.length !== 4) return;
     setChecking(true);
     const t = window.setTimeout(() => {
-      set({ role: driver ? 'driver' : 'passenger', phone, ...(name ? { name } : {}) });
+      // A captain whose sign-up is still being reviewed goes to the waiting screen.
+      if (driver && captain?.status === 'pending' && captain.phone === phone) {
+        reset('captainPending');
+        return;
+      }
+      set({ role: driver ? 'driver' : 'passenger', ...(driver ? {} : { phone }), ...(name ? { name } : {}) });
       reset(driver ? 'driverHome' : 'home');
     }, 600);
     return () => window.clearTimeout(t);

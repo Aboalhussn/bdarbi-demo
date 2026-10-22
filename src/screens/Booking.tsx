@@ -1,10 +1,17 @@
 import { useMemo, useState } from 'react';
-import { COUPONS, garageById, longDate, money, newCode, todayIso, tripById, type Trip } from '../data';
+import { COUPONS, fmt12, garageById, longDate, money, newCode, todayIso, tripById, type Trip } from '../data';
 import { Icon } from '../icons';
 import { ticketPayload, tripOf, useStore, type Booking } from '../store';
 import { QR, Sheet, TabBar, Time, TopBar } from '../ui';
 import { Avatar } from './Account';
 import { renderTicket, saveTicketImage } from '../ticketImage';
+import { liveOf } from '../live';
+
+function addMin(hhmm: string, m: number) {
+  const [h, mi] = hhmm.split(':').map(Number);
+  const t = (h * 60 + mi + m + 1440) % 1440;
+  return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
+}
 
 const FAMILY_MAX = 12;
 
@@ -152,7 +159,7 @@ function Missing() {
 }
 
 const BASE_PAYMENTS = [
-  { id: 'cash', label: 'نقداً بالكراج', note: 'ادفع للسائق قبل الحركة', icon: 'cash' },
+  { id: 'cash', label: 'نقداً بالكراج', note: 'ادفع للكابتن قبل الحركة', icon: 'cash' },
   { id: 'zain', label: 'زين كاش', note: 'تحويل من محفظتك', icon: 'wallet' },
 ];
 
@@ -301,7 +308,7 @@ export function Checkout() {
 }
 
 export function Ticket() {
-  const { route, bookings, reset, go, boardedAt, cancelBooking, showToast, name } = useStore();
+  const { route, bookings, reset, go, boardedAt, cancelBooking, showToast, name, trip: tripState } = useStore();
   const code = String(route.params?.code);
   const fresh = route.params?.fresh === true;
   const b = bookings.find((x) => x.code === code);
@@ -313,6 +320,7 @@ export function Ticket() {
   const boarded = boardedAt(b);
   const cancelled = b.status === 'cancelled';
   const past = b.date < todayIso();
+  const lv = liveOf(b, tripState);
 
   const download = async () => {
     if (saving) return;
@@ -353,7 +361,9 @@ export function Ticket() {
 
         <div className="ticket tk-card">
           {boarded ? <div className="tk-banner ok">صعدت ✓ <span className="num" style={{ fontWeight: 600 }}><Time v={boarded} /></span> — رحلة سعيدة!</div> : null}
-          {cancelled ? <div className="tk-banner bad">هذا الحجز ملغي</div> : null}
+          {cancelled ? <div className="tk-banner bad">{b.cancelledBy === 'captain' ? 'الكابتن ألغى الرحلة — فلوسك ترجعلك كاملة' : 'هذا الحجز ملغي'}</div> : null}
+          {!cancelled && lv.delay > 0 && lv.status === 'scheduled' ? <div className="tk-banner warn">تأخرت الرحلة {lv.delay} دقيقة · الانطلاق الجديد <span className="num">{fmt12(addMin(trip.time, lv.delay))}</span></div> : null}
+          {!cancelled && lv.status === 'started' ? <div className="tk-banner info">الباص بالطريق هسه 🚌</div> : null}
           <div className="tk-top">
             <div className="row" style={{ justifyContent: 'space-between' }}>
               <span className="bold">{trip.company}</span>
@@ -386,15 +396,23 @@ export function Ticket() {
           <div className="row gap14 tk-qr-row">
             <div className="tk-qr" style={{ opacity: cancelled ? 0.25 : 1 }}><QR text={ticketPayload(b)} /></div>
             <div className="grow">
-              <div className="bold">اعرض الرمز للسائق</div>
-              <div className="small muted" style={{ marginTop: 2 }}>إذا ما اشتغل المسح، السائق يكتب هذا الرمز:</div>
+              <div className="bold">اعرض الرمز للكابتن</div>
+              <div className="small muted" style={{ marginTop: 2 }}>إذا ما اشتغل المسح، الكابتن يكتب هذا الرمز:</div>
               <div className="code tk-code">{b.code}</div>
             </div>
           </div>
         </div>
 
         <div className="tk-actions">
-          {!cancelled && !past ? (
+          {!cancelled && lv.status === 'arrived' ? (
+            b.rating ? (
+              <div className="btn tk-btn" style={{ background: 'rgba(255,255,255,.12)' }}>قيّمت الرحلة <span className="stars-sm" style={{ fontSize: 18 }}>{'★'.repeat(b.rating.stars)}</span></div>
+            ) : (
+              <button className="btn tk-btn" style={{ background: 'var(--gold)', color: '#2A1A00' }} onClick={() => go('rate', { code: b.code })}>
+                <Icon name="star" size={20} /> قيّم رحلتك
+              </button>
+            )
+          ) : !cancelled && !past ? (
             <button className="btn tk-btn" style={{ background: 'var(--gold)', color: '#2A1A00' }} onClick={() => go('track', { code: b.code })}>
               <Icon name="pin" size={20} /> تتبع الباص
             </button>
@@ -477,7 +495,7 @@ export function Profile() {
     ['ticket', 'رحلاتي', () => go('myTrips')],
     ['gift', 'المكافآت والكوبونات', () => go('rewards')],
     ['shield', 'سياسة الخصوصية والاستخدام', () => go('policy')],
-    ['wheel', 'جرّب تطبيق السائق', () => { set({ role: null }); reset('login'); go('login', { driver: true }); }],
+    ['wheel', 'جرّب تطبيق كابتن بدربي', () => { set({ role: null }); reset('login'); go('login', { driver: true }); }],
     ['info', 'عن النسخة التجريبية', () => setAbout(true)],
     ['refresh', 'مسح بيانات التجربة', () => setWipe(true)],
   ];
@@ -537,11 +555,11 @@ export function AboutDemo({ onClose }: { onClose: () => void }) {
       <h2 className="h2">نسخة بدربي التجريبية</h2>
       <p className="muted" style={{ margin: 0, lineHeight: 1.8 }}>
         هذي نسخة عرض (Demo) حتى تشوف فكرة التطبيق. كل البيانات تجريبية ومحفوظة بتلفونك بس، وما اكو دفع حقيقي.
-        بالنسخة النهائية راح يكون تطبيقين منفصلين: «بدربي» للمسافر و«بدربي سائق» للسائق ومكاتب السفر.
+        بالنسخة النهائية راح يكون تطبيقين منفصلين: «بدربي» للمسافر و«كابتن بدربي» للكباتن ومكاتب السفر.
       </p>
       <ul className="small" style={{ margin: 0, paddingInlineStart: 18, lineHeight: 1.9 }}>
         <li>احجز رحلة، وتذكرتك تطلع بيها QR.</li>
-        <li>ادخل كسائق وامسح التذكرة من تلفون ثاني، أو اكتب رمز الحجز.</li>
+        <li>ادخل ككابتن وامسح التذكرة من تلفون ثاني، أو اكتب رمز الحجز.</li>
         <li>الفنادق: الحجز يكون مباشرة ويا الفندق بالواتساب أو الاتصال.</li>
       </ul>
       <button className="btn" onClick={onClose}>تمام</button>

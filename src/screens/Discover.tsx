@@ -7,6 +7,7 @@ import { tripOf, useStore, type Booking } from '../store';
 import { Sheet, Stars, TabBar, Time, TopBar, openExternal } from '../ui';
 import { CityPicker, DateField, prettyDate } from '../pickers';
 import { Avatar } from './Account';
+import { liveOf } from '../live';
 
 function seatsLeft(t: Trip, mine = 0) {
   return t.capacity - t.booked.length - mine;
@@ -20,7 +21,8 @@ function seatTag(t: Trip, mine = 0) {
 }
 
 export function Home() {
-  const { name, garageId, go, bookings, points, avatar } = useStore();
+  const { name, garageId, go, bookings, points, avatar, notifications, trip: tripState } = useStore();
+  const unread = notifications.filter((n) => !n.read).length;
   const garage = garageById(garageId);
   const upcoming = bookings.filter((b) => b.status === 'confirmed' && b.date >= todayIso()).sort((a, b) => (a.date + tripOf(a).time).localeCompare(b.date + tripOf(b).time))[0];
   const today = TRIPS.filter((t) => t.garageId === garageId && !departedToday(t)).sort((a, b) => a.time.localeCompare(b.time)).slice(0, 8);
@@ -40,6 +42,10 @@ export function Home() {
           </div>
           <button className="chip" style={{ height: 36, padding: '0 12px', fontSize: 13, color: 'var(--navy)' }} onClick={() => go('garages')}>
             <Icon name="pin" size={14} stroke={2.4} /> {garage.name.replace('كراج ', '')}
+          </button>
+          <button className="bell" aria-label={`الإشعارات${unread ? `، ${unread} جديدة` : ''}`} onClick={() => go('notifications')}>
+            <Icon name="bell" size={22} />
+            {unread ? <span className="badge">{unread}</span> : null}
           </button>
         </header>
 
@@ -97,7 +103,11 @@ export function Home() {
               <div className="small muted">رحلتك الجاية · {longDate(upcoming.date)}</div>
               <div className="bold" style={{ fontSize: 16 }}>{tripOf(upcoming).from} ← {tripOf(upcoming).to} · <span className="num"><Time v={tripOf(upcoming).time} /></span></div>
             </div>
-            <span className={`pill ${upcoming.boardedAt ? 'info' : 'ok'}`}>{upcoming.boardedAt ? 'صعدت ✓' : 'مؤكدة'}</span>
+            {(() => {
+              const lv = liveOf(upcoming, tripState);
+              const [cls, txt] = lv.status === 'started' ? ['info', 'بالطريق'] : lv.status === 'arrived' ? ['ok', 'وصلت ✓'] : lv.delay ? ['warn', `متأخرة ${lv.delay} د`] : upcoming.boardedAt ? ['info', 'صعدت ✓'] : ['ok', 'مؤكدة'];
+              return <span className={`pill ${cls}`}>{txt}</span>;
+            })()}
           </button>
         ) : null}
 

@@ -10,6 +10,8 @@ import { Coaster, HotelDetails, Hotels } from './screens/Hotels';
 import { PersonalInfo, Wallet } from './screens/Account';
 import { Track } from './screens/Track';
 import { Policy } from './screens/Policy';
+import { Notifications, Rate } from './screens/Feedback';
+import { CaptainPending, CaptainRegister } from './screens/Captain';
 import { DriverAddTrip, DriverHome, DriverProfile, DriverRequests, DriverScan, DriverScanResult, DriverTrip } from './screens/Driver';
 
 const SCREENS: Record<string, ComponentType> = {
@@ -33,6 +35,10 @@ const SCREENS: Record<string, ComponentType> = {
   wallet: Wallet,
   track: Track,
   policy: Policy,
+  rate: Rate,
+  captainRegister: CaptainRegister,
+  captainPending: CaptainPending,
+  notifications: Notifications,
   hotels: Hotels,
   hotel: HotelDetails,
   coaster: Coaster,

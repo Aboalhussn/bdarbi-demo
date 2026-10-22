@@ -5,6 +5,7 @@ import { distanceKm, fmt12, garageById, longDate, pointAlong, routePath } from '
 import { Icon } from '../icons';
 import { tripOf, useStore } from '../store';
 import { TopBar } from '../ui';
+import { liveOf } from '../live';
 
 const APPROACH_MIN = 60; // the bus starts heading to the garage an hour before leaving
 const AT_GARAGE_MIN = 15; // and waits at the garage for the last 15 minutes
@@ -48,13 +49,15 @@ const busIcon = L.divIcon({
 });
 
 export function Track() {
-  const { route, bookings } = useStore();
+  const { route, bookings, trip: tripState, go } = useStore();
   const b = bookings.find((x) => x.code === route.params?.code);
   const trip = b ? tripOf(b) : null;
   const start = trip ? garageById(trip.garageId) : null;
   const end = trip ? garageById(trip.endGarageId) : null;
   const path = useMemo(() => (trip ? routePath(trip.garageId, trip.endGarageId) : []), [trip]);
-  const depMin = b && trip ? absMinutes(b.date, trip.time) : 0;
+  const live = b ? liveOf(b, tripState) : null;
+  const delay = live?.delay ?? 0;
+  const depMin = b && trip ? absMinutes(b.date, trip.time) + delay : 0;
   const total = path.length ? (() => {
     const [h, m] = trip!.arrive.split(':').map(Number);
     let arr = absMinutes(b!.date, `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
@@ -91,8 +94,17 @@ export function Track() {
   let phase: Phase = 'waiting';
   let busPos: [number, number] = approachFrom ?? [33.3, 44.4];
   let frac = 0;
+  const captainOverride = demo === null && live?.isCaptainTrip && (live.status === 'started' || live.status === 'arrived');
   if (start && path.length) {
-    if (t < depMin - APPROACH_MIN) phase = 'waiting';
+    if (captainOverride && live!.status === 'arrived') {
+      phase = 'arrived';
+      frac = 1;
+      busPos = path[path.length - 1];
+    } else if (captainOverride && live!.startedAt) {
+      phase = 'moving';
+      frac = Math.min(0.97, Math.max(0.01, (t - live!.startedAt / 60000) / total));
+      busPos = pointAlong(path, frac).pos;
+    } else if (t < depMin - APPROACH_MIN) phase = 'waiting';
     else if (t < depMin - AT_GARAGE_MIN) {
       phase = 'approaching';
       const f = (t - (depMin - APPROACH_MIN)) / (APPROACH_MIN - AT_GARAGE_MIN);
@@ -100,6 +112,18 @@ export function Track() {
     } else if (t < depMin) {
       phase = 'atGarage';
       busPos = [start.lat, start.lng];
+    } else if (demo === null && live?.isCaptainTrip && live.status === 'scheduled') {
+      // Departure time passed but the captain hasn't pressed "انطلقنا" yet.
+      phase = 'atGarage';
+      busPos = [start.lat, start.lng];
+    } else if (demo === null && live?.isCaptainTrip && live.status === 'started' && live.startedAt) {
+      phase = 'moving';
+      frac = Math.min(0.97, Math.max(0, (t - live.startedAt / 60000) / total));
+      busPos = pointAlong(path, frac).pos;
+    } else if (demo === null && live?.isCaptainTrip && live.status === 'arrived') {
+      phase = 'arrived';
+      frac = 1;
+      busPos = path[path.length - 1];
     } else if (t < depMin + total) {
       phase = 'moving';
       frac = (t - depMin) / total;
@@ -166,9 +190,13 @@ export function Track() {
       case 'approaching':
         return { title: `الباص جاي للكراج · بعد ${durText(depMin - AT_GARAGE_MIN - t)}`, line: `باقي ${kmLeft.toFixed(1)} كم على ${start.name}`, pill: 'بالطريق للكراج', tone: 'warn' };
       case 'atGarage':
-        return { title: 'الباص واقف بالكراج', line: `يتحرك بعد ${durText(depMin - t)} · رصيف ${trip.platform}`, pill: 'اصعد هسه', tone: 'ok' };
-      case 'moving':
-        return { title: `بالطريق إلى ${end.name.replace('كراج ', '')}`, line: `يوصل بعد ${durText(depMin + total - t)} · باقي ${Math.round(kmLeft)} كم`, pill: `يوصل ${clock(depMin + total)}`, tone: 'info' };
+        return t >= depMin
+          ? { title: 'الباص واقف بالكراج', line: `ينتظر الكابتن يعلن الانطلاق · رصيف ${trip.platform}`, pill: 'اصعد هسه', tone: 'ok' }
+          : { title: 'الباص واقف بالكراج', line: `يتحرك بعد ${durText(depMin - t)} · رصيف ${trip.platform}`, pill: 'اصعد هسه', tone: 'ok' };
+      case 'moving': {
+        const eta = captainOverride && live!.startedAt ? live!.startedAt / 60000 + total : depMin + total;
+        return { title: `بالطريق إلى ${end.name.replace('كراج ', '')}`, line: `يوصل بعد ${durText(eta - t)} · باقي ${Math.round(kmLeft)} كم`, pill: `يوصل ${clock(eta)}`, tone: 'info' };
+      }
       default:
         return { title: 'وصلت الرحلة', line: `نزلتوا بـ ${end.name}`, pill: 'وصلت ✓', tone: 'ok' };
     }
@@ -183,6 +211,12 @@ export function Track() {
         {demo !== null ? <div className="demo-badge">عرض تجريبي · <span className="num">{clock(t)}</span></div> : null}
       </div>
       <div className="track-card">
+        {live?.status === 'cancelled' ? (
+          <div className="card" style={{ background: 'var(--alert-bg)', border: 0, color: 'var(--alert)', fontWeight: 700 }}>
+            {live.cancelledBy === 'captain' ? 'الكابتن ألغى هذي الرحلة — فلوسك ترجعلك كاملة.' : 'ألغيت هذا الحجز.'}
+          </div>
+        ) : null}
+        {delay > 0 && phase !== 'arrived' && live?.status !== 'cancelled' ? <div className="pill warn" style={{ alignSelf: 'flex-start' }}>تأخرت الرحلة {delay} دقيقة</div> : null}
         <div className="row gap10">
           <span className="track-ic"><Icon name="bus" size={22} /></span>
           <div className="grow">
@@ -208,6 +242,9 @@ export function Track() {
             <span className="stop-dot gold" />
           </div>
         </div>
+        {phase === 'arrived' && demo === null && !b.rating ? (
+          <button className="btn" style={{ background: 'var(--gold)', color: '#2A1A00' }} onClick={() => go('rate', { code: b.code })}><Icon name="star" size={20} /> قيّم رحلتك</button>
+        ) : null}
         <button className="btn soft sm" onClick={() => setDemo(demo === null ? depMin - APPROACH_MIN : null)}>
           <Icon name={demo === null ? 'bus' : 'refresh'} size={18} /> {demo === null ? 'شوف عرض تجريبي للرحلة' : 'رجوع للوقت الحقيقي'}
         </button>

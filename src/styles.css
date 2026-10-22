@@ -398,3 +398,47 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .tk-code { font-size: clamp(18px, 2.6dvh, 22px); color: var(--navy); margin-top: 2px; }
 .tk-actions { flex: none; display: flex; flex-direction: column; gap: clamp(8px, 1.2dvh, 12px); }
 .tk-actions .btn { height: clamp(44px, 6dvh, 54px); }
+
+.stars-sm { color: var(--gold); letter-spacing: 1px; font-size: 14px; direction: ltr; }
+.stars-sm i { color: #DCDAE6; font-style: normal; }
+
+/* ---------- rating & notifications ---------- */
+.rate-stars { display: flex; justify-content: center; gap: 6px; direction: ltr; }
+.rate-stars button { color: #CFCCE0; transition: transform .12s; }
+.rate-stars button.on { color: var(--gold); }
+.rate-stars button:active { transform: scale(.9); }
+.notif { display: flex; gap: 12px; align-items: flex-start; width: 100%; text-align: right; background: #fff; border-radius: 18px; padding: 14px; position: relative; }
+.notif.new::after { content: ''; position: absolute; left: 14px; top: 18px; width: 9px; height: 9px; border-radius: 50%; background: var(--gold); }
+.notif.new { box-shadow: inset 0 0 0 1.5px #E4E1F5; }
+.notif .grow { padding-left: 14px; }
+.notif-ic { width: 42px; height: 42px; border-radius: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: #EEEDF8; color: var(--navy); }
+.notif-ic.ok { background: var(--success-bg); color: var(--success); }
+.notif-ic.warn { background: #FDF1D6; color: #7A5200; }
+.notif-ic.bad { background: var(--alert-bg); color: var(--alert); }
+.bell { position: relative; width: 44px; height: 44px; border-radius: 14px; background: var(--surface); color: var(--navy); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.bell .badge { top: -4px; left: -4px; }
+.tk-banner.warn { background: #FDF1D6; color: #7A5200; }
+.tk-banner.info { background: #EEEDF8; color: var(--navy); }
+
+/* ---------- captain sign-up ---------- */
+.doc-tile { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 92px; padding: 12px; border-radius: 18px; border: 2px dashed var(--mist); background: #FAFAFD; text-align: right; }
+.doc-tile.done { border-style: solid; border-color: #9BD1B1; background: #F3FBF6; }
+.doc-tile img { width: 96px; height: 66px; object-fit: cover; border-radius: 10px; flex-shrink: 0; }
+.doc-ic { width: 96px; height: 66px; border-radius: 10px; background: #EEEDF8; color: var(--navy); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.doc-text { display: flex; flex-direction: column; gap: 2px; }
+.doc-tile.done .doc-text .tiny { color: var(--success); font-weight: 700; }
+.doc-text .tiny { color: var(--slate); }
+.pending-ring { width: 120px; height: 120px; border-radius: 50%; background: #EEEDF8; position: relative; display: flex; align-items: center; justify-content: center; }
+.pending-ring::before { content: ''; position: absolute; inset: -6px; border-radius: 50%; border: 4px solid transparent; border-top-color: var(--gold); border-right-color: var(--gold); animation: spin 1.4s linear infinite; }
+.pending-ring img { height: 100px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.tl { display: flex; gap: 12px; position: relative; }
+.tl:not(:last-child)::before { content: ''; position: absolute; right: 12px; top: 26px; bottom: 0; width: 2px; background: var(--line); }
+.tl.done:not(:last-child)::before { background: var(--success); }
+.tl-dot { width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: var(--surface); color: #fff; border: 2px solid #DCDAE6; }
+.tl.done .tl-dot { background: var(--success); border-color: var(--success); }
+.tl.cur .tl-dot { border-color: var(--gold); background: #FFF8E8; }
+.tl-spin { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--gold); border-top-color: transparent; animation: spin 1s linear infinite; }
+.tl.next b { color: var(--slate); }
+.doc-thumb { flex: 1; display: flex; flex-direction: column; gap: 4px; align-items: center; font-size: 11px; color: var(--slate); text-align: center; }
+.doc-thumb img { width: 100%; height: 56px; object-fit: cover; border-radius: 8px; }

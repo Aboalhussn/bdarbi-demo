@@ -14,8 +14,56 @@ export interface Booking {
   discount: number;
   pay: string;
   status: 'confirmed' | 'cancelled';
+  cancelledBy?: 'me' | 'captain';
   boardedAt?: string;
   createdAt: number;
+  rating?: Rating;
+}
+
+export interface Rating {
+  stars: number;
+  tags: string[];
+  comment: string;
+  at: number;
+}
+
+/** Live state of the captain's trip today — drives what passengers see on the map. */
+export interface TripState {
+  date: string;
+  status: 'scheduled' | 'started' | 'arrived' | 'cancelled';
+  delay: number; // minutes
+  startedAt?: number; // ms
+  arrivedAt?: number; // ms
+}
+
+export interface Notif {
+  id: string;
+  at: number;
+  icon: string;
+  title: string;
+  body: string;
+  read: boolean;
+  tone?: 'ok' | 'warn' | 'bad' | 'info';
+  link?: Route;
+}
+
+export interface CaptainVehicle {
+  kind: VehicleKind;
+  model: string;
+  plate: string;
+  seats: number;
+  color: string;
+  year: string;
+}
+
+/** A captain who signed up in this demo. Document photos are kept as small thumbnails. */
+export interface CaptainAccount {
+  name: string;
+  phone: string;
+  status: 'pending' | 'approved';
+  submittedAt: number;
+  vehicle: CaptainVehicle;
+  docs: Record<string, string>;
 }
 
 export interface DriverTripDraft {
@@ -58,6 +106,9 @@ interface Persisted {
   email: string;
   gender: '' | 'male' | 'female';
   card: SavedCard | null;
+  tripState: TripState;
+  notifications: Notif[];
+  captain: CaptainAccount | null;
 }
 
 /** Only the first four digits are kept — the rest of the number and the CVV are never stored. */
@@ -97,6 +148,11 @@ const initial: Persisted = {
   email: '',
   gender: '',
   card: null,
+  tripState: { date: '', status: 'scheduled', delay: 0 },
+  notifications: [
+    { id: 'n0', at: 0, icon: 'gift', title: 'هلا بيك ببدربي!', body: 'استخدم كوبون WELCOME وخذ خصم 20% على أول حجز.', read: false, tone: 'info', link: { name: 'rewards' } },
+  ],
+  captain: null,
 };
 
 function load(): Persisted {
@@ -186,6 +242,11 @@ interface Store extends Persisted {
   toast: string;
   showToast: (msg: string) => void;
   resetDemo: () => void;
+  notify: (n: Omit<Notif, 'id' | 'at' | 'read'>) => void;
+  markAllRead: () => void;
+  trip: TripState; // today's state of the captain's trip
+  setTrip: (patch: Partial<TripState>) => void;
+  rate: (code: string, r: Rating) => void;
 }
 
 const Ctx = createContext<Store | null>(null);
@@ -287,8 +348,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       reset,
       back,
       set,
-      addBooking: (b) => setData((d) => ({ ...d, bookings: [b, ...d.bookings], points: d.points + Math.round(b.total / 1000) })),
-      cancelBooking: (code) => setData((d) => ({ ...d, bookings: d.bookings.map((b) => (b.code === code ? { ...b, status: 'cancelled' } : b)) })),
+      addBooking: (b) =>
+        setData((d) => {
+          const t = tripById(b.tripId);
+          const n: Notif = { id: 'n' + Date.now(), at: Date.now(), read: false, icon: 'ticket', tone: 'ok', title: 'تأكد حجزك ✓', body: `${t ? `${t.from} ← ${t.to} · ${fmt12(t.time)}` : ''} · مقاعد ${b.seats.join('، ')}. رمز الحجز ${b.code}.`, link: { name: 'ticket', params: { code: b.code } } };
+          return { ...d, bookings: [b, ...d.bookings], points: d.points + Math.round(b.total / 1000), notifications: [n, ...d.notifications] };
+        }),
+      cancelBooking: (code) => setData((d) => ({ ...d, bookings: d.bookings.map((b) => (b.code === code ? { ...b, status: 'cancelled', cancelledBy: 'me' } : b)) })),
+      notify: (n) => setData((d) => ({ ...d, notifications: [{ ...n, id: 'n' + Date.now() + Math.random().toString(36).slice(2, 6), at: Date.now(), read: false }, ...d.notifications].slice(0, 60) })),
+      markAllRead: () => setData((d) => ({ ...d, notifications: d.notifications.map((x) => ({ ...x, read: true })) })),
+      trip: data.tripState.date === todayIso() ? data.tripState : { date: todayIso(), status: 'scheduled', delay: 0 },
+      setTrip: (patch) =>
+        setData((d) => {
+          const cur = d.tripState.date === todayIso() ? d.tripState : { date: todayIso(), status: 'scheduled' as const, delay: 0 };
+          const next = { ...cur, ...patch };
+          // A trip the captain cancels is cancelled for every passenger on it.
+          const bookings = next.status === 'cancelled'
+            ? d.bookings.map((b) => (b.tripId === DRIVER_TRIP_ID && b.date === todayIso() && b.status === 'confirmed' ? { ...b, status: 'cancelled' as const, cancelledBy: 'captain' as const } : b))
+            : d.bookings;
+          return { ...d, tripState: next, bookings };
+        }),
+      rate: (code, r) =>
+        setData((d) => {
+          const first = !d.bookings.find((b) => b.code === code)?.rating;
+          return { ...d, points: d.points + (first ? 20 : 0), bookings: d.bookings.map((b) => (b.code === code ? { ...b, rating: r } : b)) };
+        }),
       manifest,
       boardedAt,
       verify,

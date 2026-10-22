@@ -185,8 +185,8 @@ export async function renderTicket(b: Booking, trip: Trip, boardedAt?: string): 
   ctx.stroke();
   ctx.drawImage(qrImg, qx, y, qrSize, qrSize);
   const tx = qx - 50;
-  text(ctx, 'اعرض الرمز للسائق', tx, y + 70, `700 40px ${T}`, INK);
-  text(ctx, 'إذا ما اشتغل المسح، السائق', tx, y + 130, `400 30px ${T}`, SLATE);
+  text(ctx, 'اعرض الرمز للكابتن', tx, y + 70, `700 40px ${T}`, INK);
+  text(ctx, 'إذا ما اشتغل المسح، الكابتن', tx, y + 130, `400 30px ${T}`, SLATE);
   text(ctx, 'يكتب رمز الحجز:', tx, y + 172, `400 30px ${T}`, SLATE);
   ctx.save();
   ctx.font = `800 64px ${D}`;

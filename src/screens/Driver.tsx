@@ -3,20 +3,82 @@ import jsQR from 'jsqr';
 import { CITIES, DRIVER_TRIP_ID, DRIVER_VEHICLE, GARAGES, addHours, fmt12, garageById, longDate, money, routeInfo, todayIso, tripById } from '../data';
 import { CityPicker, DateField, GarageField, TimeField, addDays } from '../pickers';
 import { Icon } from '../icons';
-import { useStore, type Booking, type ScanOutcome } from '../store';
+import { useStore, type Booking, type CaptainAccount, type ScanOutcome } from '../store';
 import { Sheet, TabBar, Time, TopBar } from '../ui';
 import { AboutDemo } from './Booking';
 
 const DRIVER_NAME = 'حسين كاظم';
 
+function addMinutes(hhmm: string, m: number) {
+  const [h, mi] = hhmm.split(':').map(Number);
+  const t = (h * 60 + mi + m + 1440) % 1440;
+  return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
+}
+
+const SEEDED_REVIEWS = [
+  { name: 'فاطمة كريم', stars: 5, comment: 'سياقة هادئة والباص نظيف، شكراً كابتن.', tags: ['سياقة آمنة', 'نظافة'] },
+  { name: 'مصطفى جاسم', stars: 5, comment: 'التزم بالوقت بالضبط.', tags: ['التزام بالوقت'] },
+  { name: 'زينب علي', stars: 4, comment: 'كلشي زين بس التكييف ضعيف شوية.', tags: ['تعامل محترم'] },
+];
+
+/** The signed-in captain: one who registered in this demo, or the ready-made demo captain. */
+export function captainInfo(captain: CaptainAccount | null) {
+  if (captain?.status === 'approved') return { name: captain.name, vehicle: captain.vehicle, since: String(new Date(captain.submittedAt).getFullYear()) };
+  return { name: DRIVER_NAME, vehicle: DRIVER_VEHICLE, since: '2024' };
+}
+
+/** Captain rating: the seeded reviews plus any the passenger on this phone left. */
+export function captainRating(bookings: Booking[]) {
+  const mine = bookings.filter((b) => b.tripId === DRIVER_TRIP_ID && b.rating).map((b) => ({ name: b.name, stars: b.rating!.stars, comment: b.rating!.comment, tags: b.rating!.tags }));
+  const all = [...mine, ...SEEDED_REVIEWS];
+  const base = 4.9 * 120; // 120 earlier ratings averaging 4.9
+  const avg = (base + all.reduce((n, r) => n + r.stars, 0)) / (120 + all.length);
+  return { avg: avg.toFixed(1), count: 120 + all.length, reviews: all };
+}
+
 export function DriverHome() {
-  const { go, manifest, boardedAt, requests, driverTrips } = useStore();
+  const { go, manifest, boardedAt, requests, driverTrips, trip: live, setTrip, notify, bookings, showToast, captain } = useStore();
   const trip = tripById(DRIVER_TRIP_ID)!;
   const list = manifest().filter((b) => b.status === 'confirmed');
   const seats = list.reduce((n, b) => n + b.seats.length, 0);
   const boarded = list.filter((b) => boardedAt(b)).reduce((n, b) => n + b.seats.length, 0);
   const earnings = list.reduce((n, b) => n + b.seats.length * trip.price, 0);
   const newReq = requests.filter((r) => r.status === 'new').length;
+  const [sheet, setSheet] = useState<'' | 'delay' | 'cancel' | 'start'>('');
+  const [reason, setReason] = useState('عطل بالمركبة');
+  const name = captain?.status === 'approved' ? captain.name : DRIVER_NAME;
+  const depTime = addMinutes(trip.time, live.delay);
+  // The passenger on this phone hears about it only if they booked this trip.
+  const hasPassenger = bookings.some((b) => b.tripId === DRIVER_TRIP_ID && b.date === todayIso() && b.status === 'confirmed');
+  const myCode = bookings.find((b) => b.tripId === DRIVER_TRIP_ID && b.date === todayIso())?.code;
+  const route = `${trip.from} ← ${trip.to}`;
+
+  const start = () => {
+    setTrip({ status: 'started', startedAt: Date.now() });
+    if (hasPassenger) notify({ icon: 'bus', tone: 'info', title: 'انطلق الباص 🚌', body: `رحلتك ${route} انطلقت. تابع الباص على الخريطة.`, link: { name: 'track', params: { code: myCode } } });
+    showToast('انطلقت الرحلة — المسافرين يشوفون الباص على الخريطة');
+    setSheet('');
+  };
+  const arrive = () => {
+    setTrip({ status: 'arrived', arrivedAt: Date.now() });
+    if (hasPassenger) notify({ icon: 'star', tone: 'ok', title: 'وصلتوا! 🎉', body: `وصلت رحلة ${route}. قيّم رحلتك ويا الكابتن ${name.split(' ')[0]}.`, link: { name: 'rate', params: { code: myCode } } });
+    showToast('وصلت الرحلة ✓');
+  };
+  const delayBy = (m: number) => {
+    const total = live.delay + m;
+    setTrip({ delay: total });
+    if (hasPassenger) notify({ icon: 'clock', tone: 'warn', title: 'تأخرت رحلتك', body: `الكابتن أخّر الانطلاق ${m} دقيقة. الموعد الجديد ${fmt12(addMinutes(trip.time, total))}.`, link: { name: 'ticket', params: { code: myCode } } });
+    showToast(`تأخرت الرحلة ${m} دقيقة ووصل إشعار للمسافرين`);
+    setSheet('');
+  };
+  const cancel = () => {
+    setTrip({ status: 'cancelled' });
+    if (hasPassenger) notify({ icon: 'x', tone: 'bad', title: 'انلغت رحلتك', body: `الكابتن ألغى رحلة ${route} (${reason}). فلوسك ترجعلك كاملة.`, link: { name: 'ticket', params: { code: myCode } } });
+    showToast('انلغت الرحلة ووصل إشعار للمسافرين');
+    setSheet('');
+  };
+
+  const pill = live.status === 'started' ? ['info', 'بالطريق'] : live.status === 'arrived' ? ['ok', 'وصلت ✓'] : live.status === 'cancelled' ? ['bad', 'ملغية'] : live.delay ? ['warn', `متأخرة ${live.delay} د`] : ['warn', 'قبل الحركة'];
 
   return (
     <div className="screen gray">
@@ -27,32 +89,50 @@ export function DriverHome() {
               <img src="./img/driver.png" alt="" style={{ position: 'absolute', top: 2, left: 2, width: 58 }} />
             </div>
             <div className="grow">
-              <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 21 }}>هلا {DRIVER_NAME.split(' ')[0]}!</div>
-              <div className="small" style={{ opacity: 0.8 }}>سائق موثّق · ★ <span className="num">4.9</span></div>
+              <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 21 }}>هلا كابتن {name.split(' ')[0]}!</div>
+              <div className="small" style={{ opacity: 0.8 }}>كابتن موثّق · ★ <span className="num">{captainRating(bookings).avg}</span></div>
             </div>
             <span className="pill ok">متاح</span>
           </div>
           <div className="pad" style={{ marginTop: 18 }}>
-            <button className="card stack gap10" style={{ width: '100%', textAlign: 'right', border: 0 }} onClick={() => go('driverTrip')}>
-              <div className="row" style={{ justifyContent: 'space-between' }}>
-                <span className="small muted">رحلتك الحالية · اليوم</span>
-                <span className="pill warn">قبل الحركة</span>
-              </div>
-              <div className="row gap10">
-                <span className="num" style={{ fontWeight: 800, fontSize: 26, color: 'var(--navy)' }}><Time v={trip.time} /></span>
-                <span className="bold grow">{trip.from} ← {trip.to}</span>
-              </div>
-              <div className="small muted">{garageById(trip.garageId).name} · {trip.kind} {trip.capacity} مقعد · رصيف <span className="num">{trip.platform}</span></div>
-              <div>
-                <div className="row small" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
-                  <span>صعدوا <b className="num">{boarded}/{seats}</b></span>
-                  <span className="muted">محجوز <span className="num">{seats}/{trip.capacity}</span></span>
+            <div className="card stack gap10" style={{ border: 0 }}>
+              <button className="stack gap10" style={{ width: '100%', textAlign: 'right' }} onClick={() => go('driverTrip')}>
+                <div className="row" style={{ justifyContent: 'space-between', width: '100%' }}>
+                  <span className="small muted">رحلتك الحالية · اليوم</span>
+                  <span className={`pill ${pill[0]}`}>{pill[1]}</span>
                 </div>
-                <div style={{ height: 8, borderRadius: 999, background: 'var(--surface)', overflow: 'hidden' }}>
-                  <div style={{ width: `${seats ? (boarded / seats) * 100 : 0}%`, height: '100%', background: 'var(--success)', borderRadius: 999 }} />
+                <div className="row gap10" style={{ width: '100%' }}>
+                  <span className="num" style={{ fontWeight: 800, fontSize: 26, color: 'var(--navy)' }}><Time v={depTime} /></span>
+                  <span className="bold grow">{route}</span>
                 </div>
-              </div>
-            </button>
+                <div className="small muted">{garageById(trip.garageId).name} ← {garageById(trip.endGarageId).name} · رصيف <span className="num">{trip.platform}</span></div>
+                <div style={{ width: '100%' }}>
+                  <div className="row small" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span>صعدوا <b className="num">{boarded}/{seats}</b></span>
+                    <span className="muted">محجوز <span className="num">{seats}/{trip.capacity}</span></span>
+                  </div>
+                  <div style={{ height: 8, borderRadius: 999, background: 'var(--surface)', overflow: 'hidden' }}>
+                    <div style={{ width: `${seats ? (boarded / seats) * 100 : 0}%`, height: '100%', background: 'var(--success)', borderRadius: 999 }} />
+                  </div>
+                </div>
+              </button>
+              {live.status === 'scheduled' ? (
+                <div className="row gap8">
+                  <button className="btn sm grow" onClick={() => setSheet('start')}><Icon name="bus" size={18} /> انطلقنا</button>
+                  <button className="btn sm soft" style={{ width: 82 }} onClick={() => setSheet('delay')}><Icon name="clock" size={16} /> تأخير</button>
+                  <button className="btn sm soft" style={{ width: 82, color: 'var(--alert)' }} onClick={() => setSheet('cancel')}><Icon name="x" size={16} /> إلغاء</button>
+                </div>
+              ) : live.status === 'started' ? (
+                <div className="row gap8">
+                  <span className="small muted grow">انطلقت الساعة <b className="num">{live.startedAt ? fmt12(new Date(live.startedAt).toTimeString().slice(0, 5)) : ''}</b> — المسافرين يتابعونك</span>
+                  <button className="btn sm green" style={{ width: 130 }} onClick={arrive}><Icon name="check" size={18} stroke={3} /> وصلنا</button>
+                </div>
+              ) : live.status === 'arrived' ? (
+                <div className="small" style={{ color: 'var(--success)', fontWeight: 700 }}>وصلت الرحلة ✓ — التقييمات تطلع بملفك</div>
+              ) : (
+                <div className="small" style={{ color: 'var(--alert)', fontWeight: 700 }}>ألغيت هذي الرحلة ووصل إشعار للمسافرين</div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -92,6 +172,39 @@ export function DriverHome() {
         </div>
       </div>
       <TabBar active="driverHome" driver />
+      <Sheet open={sheet === 'start'} onClose={() => setSheet('')} label="انطلاق الرحلة">
+        <div className="stack gap12">
+          <h2 className="h2">نعلن الانطلاق؟</h2>
+          <p className="muted" style={{ margin: 0 }}>صعدوا <b className="num">{boarded}/{seats}</b>. بعد الانطلاق المسافرين يشوفون الباص يتحرك على الخريطة.</p>
+          {boarded < seats ? <div className="pill warn" style={{ alignSelf: 'flex-start' }}>باقي {seats - boarded} ما صعدوا</div> : null}
+          <button className="btn" onClick={start}><Icon name="bus" size={20} /> انطلقنا</button>
+          <button className="btn soft" onClick={() => setSheet('')}>بعد شوية</button>
+        </div>
+      </Sheet>
+      <Sheet open={sheet === 'delay'} onClose={() => setSheet('')} label="تأخير الرحلة">
+        <div className="stack gap12">
+          <h2 className="h2">شكد تتأخر؟</h2>
+          <p className="muted" style={{ margin: 0 }}>يوصل إشعار لكل المسافرين بالموعد الجديد.</p>
+          <div className="time-grid four">
+            {[10, 20, 30, 60].map((m) => (
+              <button key={m} onClick={() => delayBy(m)}><span className="num">{m}</span> د</button>
+            ))}
+          </div>
+        </div>
+      </Sheet>
+      <Sheet open={sheet === 'cancel'} onClose={() => setSheet('')} label="إلغاء الرحلة">
+        <div className="stack gap12">
+          <h2 className="h2">إلغاء الرحلة؟</h2>
+          <p className="muted" style={{ margin: 0 }}>كل الحجوزات تنلغي وفلوس المسافرين ترجعلهم كاملة.</p>
+          <div className="row gap8" style={{ flexWrap: 'wrap' }}>
+            {['عطل بالمركبة', 'ظرف طارئ', 'الطريق مسدود', 'قلة الركاب'].map((r) => (
+              <button key={r} className={`chip ${reason === r ? 'on' : ''}`} style={{ height: 38, fontSize: 13 }} onClick={() => setReason(r)}>{r}</button>
+            ))}
+          </div>
+          <button className="btn" style={{ background: 'var(--alert)' }} onClick={cancel}>إي، الغي الرحلة</button>
+          <button className="btn soft" onClick={() => setSheet('')}>لا</button>
+        </div>
+      </Sheet>
     </div>
   );
 }
@@ -456,7 +569,7 @@ export function DriverAddTrip() {
   const [price, setPrice] = useState('25000');
   const [err, setErr] = useState('');
   const [step, setStep] = useState(1);
-  const v = DRIVER_VEHICLE;
+  const v = captainInfo(useStore().captain).vehicle;
   const hours = hoursBetween(from, to);
   const mins = Math.round(hours * 60);
   const arrive = addHours(time, hours);
@@ -651,8 +764,11 @@ export function DriverAddTrip() {
 }
 
 export function DriverProfile() {
-  const { set, reset, resetDemo } = useStore();
+  const { set, reset, resetDemo, bookings, captain } = useStore();
   const [about, setAbout] = useState(false);
+  const me = captainInfo(captain);
+  const v = me.vehicle;
+  const rating = captainRating(bookings);
   return (
     <div className="screen">
       <div className="scroll with-tabs">
@@ -662,16 +778,33 @@ export function DriverProfile() {
               <img src="./img/driver.png" alt="" style={{ position: 'absolute', top: 2, left: 2, width: 70 }} />
             </div>
             <div className="grow">
-              <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 22 }}>{DRIVER_NAME}</div>
-              <div className="small" style={{ opacity: 0.8 }}>سائق موثّق ✓ · من <span className="num">2024</span></div>
+              <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 22 }}>{me.name}</div>
+              <div className="small" style={{ opacity: 0.8 }}>كابتن موثّق ✓ · من <span className="num">{me.since}</span></div>
+            </div>
+            <div className="center">
+              <div className="num" style={{ fontSize: 26, fontWeight: 800 }}>★ {rating.avg}</div>
+              <div className="tiny" style={{ opacity: 0.8 }}><span className="num">{rating.count}</span> تقييم</div>
             </div>
           </div>
         </div>
         <div className="pad stack gap12" style={{ marginTop: 16 }}>
           <div className="card stack gap8">
             <div className="h3">المركبة</div>
-            {[['النوع', `${DRIVER_VEHICLE.kind} ${DRIVER_VEHICLE.model} · ${DRIVER_VEHICLE.seats} مقعد`], ['الموديل', DRIVER_VEHICLE.year], ['الرقم', DRIVER_VEHICLE.plate], ['اللون', DRIVER_VEHICLE.color], ['الوثائق', 'إجازة السوق ✓ · السنوية ✓']].map(([k, v]) => (
-              <div key={k} className="row small" style={{ justifyContent: 'space-between' }}><span className="muted">{k}</span><b>{v}</b></div>
+            {[['النوع', `${v.kind} ${v.model} · ${v.seats} مقعد`], ['الموديل', v.year], ['الرقم', v.plate], ['اللون', v.color], ['الوثائق', 'إجازة السوق ✓ · السنوية ✓']].map(([k, val]) => (
+              <div key={k} className="row small" style={{ justifyContent: 'space-between' }}><span className="muted">{k}</span><b>{val}</b></div>
+            ))}
+          </div>
+          <div className="card stack gap10">
+            <div className="h3">آخر التقييمات</div>
+            {rating.reviews.slice(0, 4).map((r, i) => (
+              <div key={i} className="stack gap6" style={{ paddingBottom: 8, borderBottom: i < Math.min(rating.reviews.length, 4) - 1 ? '1px solid var(--line)' : 0 }}>
+                <div className="row" style={{ justifyContent: 'space-between' }}>
+                  <b className="small">{r.name}</b>
+                  <span className="stars-sm">{'★'.repeat(r.stars)}<i>{'★'.repeat(5 - r.stars)}</i></span>
+                </div>
+                {r.comment ? <div className="small muted">{r.comment}</div> : null}
+                {r.tags.length ? <div className="row gap6" style={{ flexWrap: 'wrap' }}>{r.tags.map((t) => <span key={t} className="pill info" style={{ height: 22, fontSize: 11 }}>{t}</span>)}</div> : null}
+              </div>
             ))}
           </div>
           <button className="list-item" onClick={() => setAbout(true)}>
