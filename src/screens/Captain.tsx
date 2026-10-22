@@ -430,10 +430,15 @@ export function CaptainRegister() {
       ) : null}
       {reading ? (
         <div className="doc-read">
-          <img src={reading.img} alt="" />
-          <div className="dr-scanline" />
+          <div className="dr-photo">
+            <img src={reading.img} alt="" />
+            {/* A gold line runs round the photo's rounded edge while it is being read. */}
+            <svg className="dr-trace" viewBox="0 0 100 63" preserveAspectRatio="none" aria-hidden="true">
+              <rect x="1" y="1" width="98" height="61" rx="6" ry="6" pathLength="100" />
+            </svg>
+          </div>
           <b>جاري قراءة {DOCS[reading.index].title}…</b>
-          <span className="small">لا تسد التطبيق</span>
+          <span className="small muted">لا تسد التطبيق</span>
         </div>
       ) : null}
       <Sheet open={!!result} onClose={() => setResult(null)} label="المعلومات اللي قريناها">
@@ -445,11 +450,22 @@ export function CaptainRegister() {
             </div>
             <img src={result.img} alt="" className="dr-preview" />
             <div className="read-fields">
-              {result.fields.map(([k, v]) => (
-                <div key={k}><span className="tiny muted">{k}</span><b>{v}</b></div>
+              {result.fields.map(([k, v], i) => (
+                <label key={k} className="rf-edit">
+                  <span className="tiny muted">{k}</span>
+                  <input
+                    value={v}
+                    dir={/^[\x00-\x7F]*$/.test(v) ? 'ltr' : 'rtl'}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setResult((r) => (r ? { ...r, fields: r.fields.map((f, j) => (j === i ? [f[0], val] : f)) } : r));
+                    }}
+                  />
+                  <Icon name="edit" size={14} />
+                </label>
               ))}
             </div>
-            <div className="tiny muted">تأكد إن المعلومات مطابقة. إذا الصورة مو واضحة صوّرها مرة ثانية.</div>
+            <div className="tiny muted">إذا اكو معلومة غلط اضغط عليها وصحّحها. وإذا الصورة مو واضحة صوّرها مرة ثانية.</div>
             <button className="btn" onClick={acceptResult}>
               {result.index < DOCS.length - 1 && !docs[DOCS[result.index + 1].id] ? <>صحيحة — هسه صوّر {DOCS[result.index + 1].title.replace('إجازة السوق', 'الإجازة')}</> : 'صحيحة ✓'}
             </button>

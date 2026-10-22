@@ -501,13 +501,21 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .ds-shutter span { width: 60px; height: 60px; border-radius: 50%; background: #fff; transition: transform .1s; }
 .ds-shutter:active span { transform: scale(.9); }
 .ds-shutter:disabled { opacity: .4; }
-.doc-read { position: absolute; inset: 0; z-index: 70; background: var(--navy); color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 24px; text-align: center; }
-.doc-read img { width: 100%; max-width: 340px; border-radius: 16px; aspect-ratio: 1.585; object-fit: cover; }
-.dr-scanline { width: 100%; max-width: 340px; height: 4px; border-radius: 4px; background: linear-gradient(90deg, transparent, var(--gold), transparent); background-size: 50% 100%; background-repeat: no-repeat; animation: drscan 1.1s ease-in-out infinite; margin-top: -8px; }
-@keyframes drscan { from { background-position: -100% 0; } to { background-position: 200% 0; } }
+.doc-read { position: absolute; inset: 0; z-index: 70; background: #fff; color: var(--ink); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 24px; text-align: center; }
+.dr-photo { position: relative; width: 100%; max-width: 340px; aspect-ratio: 1.585; margin-bottom: 14px; }
+.dr-photo img { position: absolute; inset: 7px; width: calc(100% - 14px); height: calc(100% - 14px); object-fit: cover; border-radius: 14px; box-shadow: 0 10px 30px rgba(11,5,88,.15); }
+.dr-trace { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.dr-trace rect { fill: none; stroke: var(--gold); stroke-width: 1.3; stroke-linecap: round; stroke-dasharray: 26 74; animation: drtrace 1.6s linear infinite; vector-effect: non-scaling-stroke; }
+.dr-trace rect { stroke-width: 4px; }
+@keyframes drtrace { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
+.doc-read b { font-family: var(--display); font-size: 18px; }
 .dr-preview { width: 100%; border-radius: 14px; aspect-ratio: 1.585; object-fit: cover; }
 .read-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.read-fields div { background: var(--surface); border-radius: 12px; padding: 8px 12px; display: flex; flex-direction: column; }
+.rf-edit { position: relative; background: var(--surface); border-radius: 12px; padding: 8px 12px; display: flex; flex-direction: column; border: 1.5px solid transparent; cursor: text; }
+.rf-edit:focus-within { border-color: var(--navy); background: #fff; }
+.rf-edit input { border: 0; outline: 0; background: transparent; font-weight: 700; font-size: 15px; padding: 0; width: 100%; color: var(--ink); text-align: right; }
+.rf-edit input[dir=ltr] { text-align: right; }
+.rf-edit svg { position: absolute; left: 10px; top: 10px; color: var(--mist); }
 .doc-thumbs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .doc-thumb { display: flex; flex-direction: column; gap: 4px; align-items: center; font-size: 11px; color: var(--slate); text-align: center; }
 .doc-thumb img { width: 100%; height: 48px; object-fit: cover; border-radius: 8px; }
