@@ -110,6 +110,37 @@ interface Persisted {
   tripState: TripState;
   notifications: Notif[];
   captain: CaptainAccount | null;
+  captainProfile: CaptainProfile;
+  withdrawals: Withdrawal[];
+  support: { passenger: ChatMsg[]; captain: ChatMsg[] };
+  captainNotifs: Notif[];
+  goalsClaimed: string[]; // ids of captain challenges whose reward was collected
+}
+
+/** The captain's own details, edited from his profile (empty = use the account's). */
+export interface CaptainProfile {
+  name: string;
+  phone: string;
+  email: string;
+  gender: '' | 'male' | 'female';
+  avatar: string;
+  password: string;
+}
+
+export interface Withdrawal {
+  id: string;
+  amount: number;
+  method: string;
+  at: number;
+  status: 'pending' | 'paid';
+}
+
+export interface ChatMsg {
+  id: string;
+  from: 'me' | 'support';
+  text: string;
+  image?: string;
+  at: number;
 }
 
 /** Only the first four digits are kept — the rest of the number and the CVV are never stored. */
@@ -154,6 +185,14 @@ const initial: Persisted = {
     { id: 'n0', at: 0, icon: 'gift', title: 'هلا بيك ببدربي!', body: 'استخدم كوبون WELCOME وخذ خصم 20% على أول حجز.', read: false, tone: 'info', link: { name: 'rewards' } },
   ],
   captain: null,
+  captainProfile: { name: '', phone: '', email: '', gender: '', avatar: '', password: '' },
+  withdrawals: [],
+  support: { passenger: [], captain: [] },
+  captainNotifs: [
+    { id: 'cn1', at: 0, icon: 'trophy', title: 'تحدي جديد 🏆', body: 'خلّص 3 رحلات خلال يومين واربح 25,000 د.ع تنضاف لمحفظتك.', read: false, tone: 'ok', link: { name: 'driverGoals' } },
+    { id: 'cn0', at: 0, icon: 'star', title: 'تقييمك ★ 4.9', body: 'تقييمك عالي، فرحلاتك تطلع بأول نتائج البحث للمسافرين. كمّل هيج!', read: true, tone: 'info' },
+  ],
+  goalsClaimed: [],
 };
 
 function load(): Persisted {
@@ -243,8 +282,8 @@ interface Store extends Persisted {
   toast: string;
   showToast: (msg: string) => void;
   resetDemo: () => void;
-  notify: (n: Omit<Notif, 'id' | 'at' | 'read'>) => void;
-  markAllRead: () => void;
+  notify: (n: Omit<Notif, 'id' | 'at' | 'read'>, to?: 'passenger' | 'captain') => void;
+  markAllRead: (as?: 'passenger' | 'captain') => void;
   trip: TripState; // today's state of the captain's trip
   setTrip: (patch: Partial<TripState>) => void;
   rate: (code: string, r: Rating) => void;
@@ -356,8 +395,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return { ...d, bookings: [b, ...d.bookings], points: d.points + Math.round(b.total / 1000), notifications: [n, ...d.notifications] };
         }),
       cancelBooking: (code) => setData((d) => ({ ...d, bookings: d.bookings.map((b) => (b.code === code ? { ...b, status: 'cancelled', cancelledBy: 'me' } : b)) })),
-      notify: (n) => setData((d) => ({ ...d, notifications: [{ ...n, id: 'n' + Date.now() + Math.random().toString(36).slice(2, 6), at: Date.now(), read: false }, ...d.notifications].slice(0, 60) })),
-      markAllRead: () => setData((d) => ({ ...d, notifications: d.notifications.map((x) => ({ ...x, read: true })) })),
+      notify: (n, to = 'passenger') =>
+        setData((d) => {
+          const item: Notif = { ...n, id: 'n' + Date.now() + Math.random().toString(36).slice(2, 6), at: Date.now(), read: false };
+          return to === 'captain'
+            ? { ...d, captainNotifs: [item, ...d.captainNotifs].slice(0, 60) }
+            : { ...d, notifications: [item, ...d.notifications].slice(0, 60) };
+        }),
+      markAllRead: (as = 'passenger') =>
+        setData((d) => (as === 'captain'
+          ? { ...d, captainNotifs: d.captainNotifs.map((x) => ({ ...x, read: true })) }
+          : { ...d, notifications: d.notifications.map((x) => ({ ...x, read: true })) })),
       trip: data.tripState.date === todayIso() ? data.tripState : { date: todayIso(), status: 'scheduled', delay: 0 },
       setTrip: (patch) =>
         setData((d) => {

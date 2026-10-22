@@ -32,9 +32,9 @@ const PASSENGER_TABS = [
 
 const DRIVER_TABS = [
   { key: 'driverHome', icon: 'home', label: 'الرئيسية' },
-  { key: 'driverRequests', icon: 'inbox', label: 'الطلبات' },
+  { key: 'driverTrip', icon: 'users', label: 'الركاب' },
   { key: 'driverScan', icon: 'scan', label: 'مسح التذكرة' },
-  { key: 'driverTrip', icon: 'list', label: 'رحلتي' },
+  { key: 'driverGoals', icon: 'trophy', label: 'الإنجازات' },
   { key: 'driverProfile', icon: 'user', label: 'ملفي' },
 ];
 
@@ -63,7 +63,7 @@ export function TabBar({ active, driver = false }: { active: string; driver?: bo
             }}
           >
             <Icon name={t.icon} size={22} />
-            {driver && t.key === 'driverRequests' && newReq > 0 ? <span className="badge">{newReq}</span> : null}
+            {driver && t.key === 'driverTrip' && newReq > 0 ? <span className="badge">{newReq}</span> : null}
           </button>
         ))}
       </nav>

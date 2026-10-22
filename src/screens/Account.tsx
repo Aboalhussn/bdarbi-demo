@@ -4,6 +4,7 @@ import { Icon, Logo } from '../icons';
 import { tripOf, useStore } from '../store';
 import { Sheet, TopBar } from '../ui';
 import { PhoneField, phoneError } from './Welcome';
+import { captainInfo } from '../captain';
 
 /** Round profile picture: the user's photo, or the mascot when there is none. */
 export function Avatar({ size = 60, src }: { size?: number; src?: string }) {
@@ -95,8 +96,7 @@ export function PasswordMeter({ value }: { value: string }) {
   );
 }
 
-function ChangePassword({ onDone }: { onDone: (p: string) => void }) {
-  const { password } = useStore();
+function ChangePassword({ onDone, current: password }: { onDone: (p: string) => void; current: string }) {
   const [current, setCurrent] = useState('');
   const [pass, setPass] = useState('');
   const [pass2, setPass2] = useState('');
@@ -140,12 +140,19 @@ function ChangePassword({ onDone }: { onDone: (p: string) => void }) {
 export function PersonalInfo() {
   const store = useStore();
   const { set, back, showToast } = store;
+  // The same screen edits the captain's own details when opened from the captain app.
+  const asCaptain = store.route.params?.captain === true;
+  const cp = store.captainProfile;
+  const me = captainInfo(store.captain, cp);
+  const start = asCaptain
+    ? { avatar: cp.avatar, name: me.name, phone: me.phone, email: cp.email, gender: cp.gender, password: cp.password }
+    : { avatar: store.avatar, name: store.name === 'ضيف' ? '' : store.name, phone: store.phone, email: store.email, gender: store.gender, password: store.password };
   const fileRef = useRef<HTMLInputElement>(null);
-  const [avatar, setAvatar] = useState(store.avatar);
-  const [name, setName] = useState(store.name === 'ضيف' ? '' : store.name);
-  const [phone, setPhone] = useState(store.phone);
-  const [email, setEmail] = useState(store.email);
-  const [gender, setGender] = useState(store.gender);
+  const [avatar, setAvatar] = useState(start.avatar);
+  const [name, setName] = useState(start.name);
+  const [phone, setPhone] = useState(start.phone);
+  const [email, setEmail] = useState(start.email);
+  const [gender, setGender] = useState(start.gender);
   const [errs, setErrs] = useState<Record<string, string>>({});
   const [photoSheet, setPhotoSheet] = useState(false);
   const [passSheet, setPassSheet] = useState(false);
@@ -167,7 +174,8 @@ export function PersonalInfo() {
     if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) e.email = 'الإيميل مو صحيح';
     setErrs(e);
     if (Object.keys(e).length) return;
-    set({ avatar, name: name.trim(), phone, email: email.trim(), gender });
+    if (asCaptain) set({ captainProfile: { ...cp, avatar, name: name.trim(), phone, email: email.trim(), gender } });
+    else set({ avatar, name: name.trim(), phone, email: email.trim(), gender });
     showToast('انحفظت معلوماتك ✓');
     back();
   };
@@ -178,7 +186,11 @@ export function PersonalInfo() {
       <div className="scroll pad stack gap14" style={{ paddingBottom: 20 }}>
         <div className="stack" style={{ alignItems: 'center', gap: 8, marginTop: 4 }}>
           <button onClick={() => setPhotoSheet(true)} aria-label="غيّر الصورة" style={{ position: 'relative' }}>
-            <Avatar size={104} src={avatar} />
+            {asCaptain && !avatar ? (
+              <div style={{ width: 104, height: 104, borderRadius: '50%', background: 'var(--lavender)', overflow: 'hidden', position: 'relative' }}><img src="./img/driver.png" alt="" style={{ position: 'absolute', top: 4, left: 4, width: 100 }} /></div>
+            ) : (
+              <Avatar size={104} src={avatar} />
+            )}
             <span style={{ position: 'absolute', bottom: 2, left: 2, width: 34, height: 34, borderRadius: '50%', background: 'var(--navy)', color: '#fff', border: '3px solid #F7F6FA', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Icon name="camera" size={16} />
             </span>
@@ -212,7 +224,7 @@ export function PersonalInfo() {
           <span className="df-ic"><Icon name="lock" size={20} /></span>
           <span className="grow">
             <span className="bold" style={{ display: 'block' }}>تغيير الرمز</span>
-            <span className="tiny muted">{store.password ? 'آخر رمز محفوظ بهذا التلفون' : 'حط رمز قوي لحسابك'}</span>
+            <span className="tiny muted">{start.password ? 'آخر رمز محفوظ بهذا التلفون' : 'حط رمز قوي لحسابك'}</span>
           </span>
           <Icon name="forward" size={18} />
         </button>
@@ -228,7 +240,7 @@ export function PersonalInfo() {
         </div>
       </Sheet>
       <Sheet open={passSheet} onClose={() => setPassSheet(false)} label="تغيير الرمز">
-        <ChangePassword onDone={(p) => { set({ password: p }); setPassSheet(false); showToast('تغيّر الرمز ✓'); }} />
+        <ChangePassword current={start.password} onDone={(p) => { if (asCaptain) set({ captainProfile: { ...store.captainProfile, password: p } }); else set({ password: p }); setPassSheet(false); showToast('تغيّر الرمز ✓'); }} />
       </Sheet>
     </div>
   );

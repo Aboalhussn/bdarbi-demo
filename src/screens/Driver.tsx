@@ -1,13 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import jsQR from 'jsqr';
-import { CITIES, DRIVER_TRIP_ID, DRIVER_VEHICLE, GARAGES, addHours, fmt12, garageById, longDate, money, routeInfo, todayIso, tripById } from '../data';
+import { CITIES, DRIVER_TRIP_ID, GARAGES, addHours, fmt12, garageById, longDate, money, routeInfo, todayIso, tripById } from '../data';
 import { CityPicker, DateField, GarageField, TimeField, addDays } from '../pickers';
 import { Icon } from '../icons';
-import { useStore, type Booking, type CaptainAccount, type ScanOutcome } from '../store';
+import { useStore, type Booking, type ScanOutcome } from '../store';
+import { captainInfo } from '../captain';
 import { Sheet, TabBar, Time, TopBar } from '../ui';
-import { AboutDemo } from './Booking';
 
-const DRIVER_NAME = 'حسين كاظم';
 
 function addMinutes(hhmm: string, m: number) {
   const [h, mi] = hhmm.split(':').map(Number);
@@ -22,10 +21,6 @@ const SEEDED_REVIEWS = [
 ];
 
 /** The signed-in captain: one who registered in this demo, or the ready-made demo captain. */
-export function captainInfo(captain: CaptainAccount | null) {
-  if (captain?.status === 'approved') return { name: captain.name, vehicle: captain.vehicle, since: String(new Date(captain.submittedAt).getFullYear()) };
-  return { name: DRIVER_NAME, vehicle: DRIVER_VEHICLE, since: '2024' };
-}
 
 /** Captain rating: the seeded reviews plus any the passenger on this phone left. */
 export function captainRating(bookings: Booking[]) {
@@ -37,7 +32,8 @@ export function captainRating(bookings: Booking[]) {
 }
 
 export function DriverHome() {
-  const { go, manifest, boardedAt, requests, driverTrips, trip: live, setTrip, notify, bookings, showToast, captain } = useStore();
+  const { go, manifest, boardedAt, requests, driverTrips, trip: live, setTrip, notify, bookings, showToast, captain, captainProfile, captainNotifs, goalsClaimed } = useStore();
+  const unread = captainNotifs.filter((n) => !n.read).length;
   const trip = tripById(DRIVER_TRIP_ID)!;
   const list = manifest().filter((b) => b.status === 'confirmed');
   const seats = list.reduce((n, b) => n + b.seats.length, 0);
@@ -46,7 +42,8 @@ export function DriverHome() {
   const newReq = requests.filter((r) => r.status === 'new').length;
   const [sheet, setSheet] = useState<'' | 'delay' | 'cancel' | 'start'>('');
   const [reason, setReason] = useState('عطل بالمركبة');
-  const name = captain?.status === 'approved' ? captain.name : DRIVER_NAME;
+  const me = captainInfo(captain, captainProfile);
+  const name = me.name;
   const depTime = addMinutes(trip.time, live.delay);
   // The passenger on this phone hears about it only if they booked this trip.
   const hasPassenger = bookings.some((b) => b.tripId === DRIVER_TRIP_ID && b.date === todayIso() && b.status === 'confirmed');
@@ -63,6 +60,10 @@ export function DriverHome() {
     setTrip({ status: 'arrived', arrivedAt: Date.now() });
     if (hasPassenger) notify({ icon: 'star', tone: 'ok', title: 'وصلتوا! 🎉', body: `وصلت رحلة ${route}. قيّم رحلتك ويا الكابتن ${name.split(' ')[0]}.`, link: { name: 'rate', params: { code: myCode } } });
     showToast('وصلت الرحلة ✓');
+    // Today's arrival is the third trip in two days — that completes a challenge.
+    if (!goalsClaimed.includes('g3in2')) {
+      window.setTimeout(() => notify({ icon: 'trophy', tone: 'ok', title: 'كمّلت تحدي! 🎉', body: 'خلّصت 3 رحلات خلال يومين. استلم مكافأتك 25,000 د.ع من الإنجازات.', link: { name: 'driverGoals' } }, 'captain'), 900);
+    }
   };
   const delayBy = (m: number) => {
     const total = live.delay + m;
@@ -86,13 +87,16 @@ export function DriverHome() {
         <div className="hero" style={{ paddingTop: 'calc(20px + var(--safe-top))', paddingBottom: 22 }}>
           <div className="pad row gap14">
             <div style={{ width: 60, height: 60, borderRadius: '50%', background: 'var(--lavender)', overflow: 'hidden', flexShrink: 0, position: 'relative' }}>
-              <img src="./img/driver.png" alt="" style={{ position: 'absolute', top: 2, left: 2, width: 58 }} />
+              {me.avatar ? <img src={me.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <img src="./img/driver.png" alt="" style={{ position: 'absolute', top: 2, left: 2, width: 58 }} />}
             </div>
             <div className="grow">
               <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 21 }}>هلا كابتن {name.split(' ')[0]}!</div>
               <div className="small" style={{ opacity: 0.8 }}>كابتن موثّق · ★ <span className="num">{captainRating(bookings).avg}</span></div>
             </div>
-            <span className="pill ok">متاح</span>
+            <button className="bell" aria-label={`الإشعارات${unread ? `، ${unread} جديدة` : ''}`} onClick={() => go('notifications', { as: 'captain' })}>
+              <Icon name="bell" size={22} />
+              {unread ? <span className="badge num">{unread}</span> : null}
+            </button>
           </div>
           <div className="pad" style={{ marginTop: 18 }}>
             <div className="card stack gap10" style={{ border: 0 }}>
@@ -128,7 +132,7 @@ export function DriverHome() {
                   <button className="btn sm green" style={{ width: 130 }} onClick={arrive}><Icon name="check" size={18} stroke={3} /> وصلنا</button>
                 </div>
               ) : live.status === 'arrived' ? (
-                <div className="small" style={{ color: 'var(--success)', fontWeight: 700 }}>وصلت الرحلة ✓ — التقييمات تطلع بملفك</div>
+                <div className="small" style={{ color: 'var(--success)', fontWeight: 700 }}>وصلت الرحلة ✓ — تقييمات الركاب تنضاف لتقييمك الكلي</div>
               ) : (
                 <div className="small" style={{ color: 'var(--alert)', fontWeight: 700 }}>ألغيت هذي الرحلة ووصل إشعار للمسافرين</div>
               )}
@@ -210,7 +214,8 @@ export function DriverHome() {
 }
 
 export function DriverTrip() {
-  const { manifest, boardedAt, board, go, showToast } = useStore();
+  const { manifest, boardedAt, board, go, showToast, requests } = useStore();
+  const newReq = requests.filter((r) => r.status === 'new').length;
   const trip = tripById(DRIVER_TRIP_ID)!;
   const list = manifest();
   const bySeat = new Map<number, Booking>();
@@ -242,7 +247,7 @@ export function DriverTrip() {
 
   return (
     <div className="screen">
-      <TopBar title={`${trip.from} ← ${trip.to}`} sub={<>اليوم · <span className="num"><Time v={trip.time} /></span> · صعدوا <b className="num">{boarded}/{seats}</b></>} right={<button className="iconbtn" aria-label="مسح تذكرة" onClick={() => go('driverScan')} style={{ background: 'var(--navy)', color: '#fff' }}><Icon name="scan" size={22} /></button>} />
+      <TopBar title={`${trip.from} ← ${trip.to}`} sub={<>اليوم · <span className="num"><Time v={trip.time} /></span> · صعدوا <b className="num">{boarded}/{seats}</b></>} right={<button className="iconbtn req-btn" aria-label={`طلبات الحجز${newReq ? `، ${newReq} جديدة` : ''}`} onClick={() => go('driverRequests')}><Icon name="inbox" size={22} />{newReq ? <span className="badge num">{newReq}</span> : null}</button>} />
       <div className="legend" style={{ padding: '0 20px 10px' }}>
         <span><i style={{ background: '#DCDAE6' }} />محجوز</span>
         <span><i style={{ background: 'var(--success-bg)', border: '1.5px solid #9BD1B1' }} />صعد</span>
@@ -503,30 +508,36 @@ export function DriverRequests() {
     set({ requests: requests.map((r) => (r.id === id ? { ...r, status } : r)) });
     showToast(status === 'accepted' ? 'قبلت الطلب، وصل إشعار للمسافر' : 'رفضت الطلب');
   };
+  const fresh = requests.filter((r) => r.status === 'new');
+  const old = requests.filter((r) => r.status !== 'new');
+  const card = (r: (typeof requests)[number]) => (
+    <div key={r.id} className="card stack gap10">
+      <div className="row gap12">
+        <span className="ic" style={{ width: 44, height: 44, borderRadius: 14, background: '#EEEDF8', color: 'var(--navy)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="user" size={22} /></span>
+        <div className="grow">
+          <div className="bold">{r.name}</div>
+          <div className="small muted">{r.route} · {r.when} · {r.seats} مقاعد</div>
+        </div>
+        {r.status !== 'new' ? <span className={`pill ${r.status === 'accepted' ? 'ok' : 'bad'}`}>{r.status === 'accepted' ? 'مقبول' : 'مرفوض'}</span> : null}
+      </div>
+      {r.status === 'new' ? (
+        <div className="row gap10">
+          <button className="btn sm green grow" onClick={() => decide(r.id, 'accepted')}>قبول</button>
+          <button className="btn sm soft grow" onClick={() => decide(r.id, 'declined')}>رفض</button>
+        </div>
+      ) : null}
+    </div>
+  );
   return (
     <div className="screen gray">
-      <div className="topbar"><div className="title" style={{ fontSize: 24, fontWeight: 800 }}>الطلبات</div></div>
-      <div className="scroll with-tabs pad stack gap10">
-        {requests.map((r) => (
-          <div key={r.id} className="card stack gap10">
-            <div className="row gap12">
-              <span className="ic" style={{ width: 44, height: 44, borderRadius: 14, background: '#EEEDF8', color: 'var(--navy)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="user" size={22} /></span>
-              <div className="grow">
-                <div className="bold">{r.name}</div>
-                <div className="small muted">{r.route} · {r.when} · {r.seats} مقاعد</div>
-              </div>
-              {r.status !== 'new' ? <span className={`pill ${r.status === 'accepted' ? 'ok' : 'bad'}`}>{r.status === 'accepted' ? 'مقبول' : 'مرفوض'}</span> : null}
-            </div>
-            {r.status === 'new' ? (
-              <div className="row gap10">
-                <button className="btn sm green grow" onClick={() => decide(r.id, 'accepted')}>قبول</button>
-                <button className="btn sm soft grow" onClick={() => decide(r.id, 'declined')}>رفض</button>
-              </div>
-            ) : null}
-          </div>
-        ))}
+      <TopBar title="طلبات الحجز" sub={fresh.length ? `${fresh.length} تنتظر موافقتك` : 'ما اكو طلبات جديدة'} />
+      <div className="scroll pad stack gap10" style={{ paddingBottom: 24 }}>
+        {fresh.length === 0 ? (
+          <div className="card center small muted" style={{ padding: 22 }}>ما عندك طلبات جديدة هسه. أول ما يطلب مسافر يطلعلك هنا.</div>
+        ) : fresh.map(card)}
+        {old.length ? <h2 className="h3" style={{ marginTop: 8 }}>اللي رديت عليها</h2> : null}
+        {old.map(card)}
       </div>
-      <TabBar active="driverRequests" driver />
     </div>
   );
 }
@@ -759,69 +770,6 @@ export function DriverAddTrip() {
           {step < 3 ? <>التالي <Icon name="forward" size={18} /></> : round ? 'انشر الروحة والرجعة' : 'انشر الرحلة'}
         </button>
       </div>
-    </div>
-  );
-}
-
-export function DriverProfile() {
-  const { set, reset, resetDemo, bookings, captain } = useStore();
-  const [about, setAbout] = useState(false);
-  const me = captainInfo(captain);
-  const v = me.vehicle;
-  const rating = captainRating(bookings);
-  return (
-    <div className="screen">
-      <div className="scroll with-tabs">
-        <div className="hero" style={{ paddingTop: 'calc(26px + var(--safe-top))', paddingBottom: 24 }}>
-          <div className="pad row gap14">
-            <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'var(--lavender)', overflow: 'hidden', flexShrink: 0, position: 'relative' }}>
-              <img src="./img/driver.png" alt="" style={{ position: 'absolute', top: 2, left: 2, width: 70 }} />
-            </div>
-            <div className="grow">
-              <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 22 }}>{me.name}</div>
-              <div className="small" style={{ opacity: 0.8 }}>كابتن موثّق ✓ · من <span className="num">{me.since}</span></div>
-            </div>
-            <div className="center">
-              <div className="num" style={{ fontSize: 26, fontWeight: 800 }}>★ {rating.avg}</div>
-              <div className="tiny" style={{ opacity: 0.8 }}><span className="num">{rating.count}</span> تقييم</div>
-            </div>
-          </div>
-        </div>
-        <div className="pad stack gap12" style={{ marginTop: 16 }}>
-          <div className="card stack gap8">
-            <div className="h3">المركبة</div>
-            {[['النوع', `${v.kind} ${v.model} · ${v.seats} مقعد`], ['الموديل', v.year], ['الرقم', v.plate], ['اللون', v.color], ['الوثائق', 'إجازة السوق ✓ · السنوية ✓']].map(([k, val]) => (
-              <div key={k} className="row small" style={{ justifyContent: 'space-between' }}><span className="muted">{k}</span><b>{val}</b></div>
-            ))}
-          </div>
-          <div className="card stack gap10">
-            <div className="h3">آخر التقييمات</div>
-            {rating.reviews.slice(0, 4).map((r, i) => (
-              <div key={i} className="stack gap6" style={{ paddingBottom: 8, borderBottom: i < Math.min(rating.reviews.length, 4) - 1 ? '1px solid var(--line)' : 0 }}>
-                <div className="row" style={{ justifyContent: 'space-between' }}>
-                  <b className="small">{r.name}</b>
-                  <span className="stars-sm">{'★'.repeat(r.stars)}<i>{'★'.repeat(5 - r.stars)}</i></span>
-                </div>
-                {r.comment ? <div className="small muted">{r.comment}</div> : null}
-                {r.tags.length ? <div className="row gap6" style={{ flexWrap: 'wrap' }}>{r.tags.map((t) => <span key={t} className="pill info" style={{ height: 22, fontSize: 11 }}>{t}</span>)}</div> : null}
-              </div>
-            ))}
-          </div>
-          <button className="list-item" onClick={() => setAbout(true)}>
-            <span className="ic"><Icon name="info" size={22} /></span><span className="grow bold">عن النسخة التجريبية</span>
-          </button>
-          <button className="list-item" onClick={() => { set({ role: null }); reset('login'); }}>
-            <span className="ic"><Icon name="swap" size={22} /></span><span className="grow bold">ارجع لتطبيق المسافر</span>
-          </button>
-          <button className="list-item" onClick={resetDemo}>
-            <span className="ic"><Icon name="refresh" size={22} /></span><span className="grow bold">مسح بيانات التجربة</span>
-          </button>
-        </div>
-      </div>
-      <TabBar active="driverProfile" driver />
-      <Sheet open={about} onClose={() => setAbout(false)} label="عن النسخة التجريبية">
-        <AboutDemo onClose={() => setAbout(false)} />
-      </Sheet>
     </div>
   );
 }

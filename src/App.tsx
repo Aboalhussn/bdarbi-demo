@@ -12,7 +12,9 @@ import { Track } from './screens/Track';
 import { Policy } from './screens/Policy';
 import { Notifications, Rate } from './screens/Feedback';
 import { CaptainPending, CaptainRegister } from './screens/Captain';
-import { DriverAddTrip, DriverHome, DriverProfile, DriverRequests, DriverScan, DriverScanResult, DriverTrip } from './screens/Driver';
+import { DriverAddTrip, DriverHome, DriverRequests, DriverScan, DriverScanResult, DriverTrip } from './screens/Driver';
+import { CaptainVehicle, CaptainWallet, DriverGoals, DriverProfile } from './screens/CaptainAccount';
+import { Support } from './screens/Support';
 
 const SCREENS: Record<string, ComponentType> = {
   splash: Splash,
@@ -39,6 +41,10 @@ const SCREENS: Record<string, ComponentType> = {
   captainRegister: CaptainRegister,
   captainPending: CaptainPending,
   notifications: Notifications,
+  support: Support,
+  captainWallet: CaptainWallet,
+  captainVehicle: CaptainVehicle,
+  driverGoals: DriverGoals,
   hotels: Hotels,
   hotel: HotelDetails,
   coaster: Coaster,

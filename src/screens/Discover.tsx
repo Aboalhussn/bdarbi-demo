@@ -277,7 +277,8 @@ export function Search() {
     const list = TRIPS.filter((t) => t.from === from && t.to === to)
       .filter((t) => !(isToday && departedToday(t)))
       .filter((t) => seatsLeft(t, myCount(bookings, t.id, date)) >= passengers)
-      .sort((a, b) => a.time.localeCompare(b.time));
+      // Higher-rated captains come first; same rating → earlier departure first.
+      .sort((a, b) => Number(b.rating) - Number(a.rating) || a.time.localeCompare(b.time));
     setResults(list);
     window.setTimeout(() => document.getElementById('results')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
   };
@@ -349,6 +350,7 @@ export function Search() {
               <h2 className="h3">{from} ← {to}</h2>
               <span className="small muted">{prettyDate(date)} · {passengers} {passengers === 1 ? 'مسافر' : 'مسافرين'}</span>
             </div>
+            <div className="tiny muted" style={{ marginTop: 2 }}>مرتبة حسب تقييم الكابتن ★ — الأعلى تقييماً أول</div>
             <div className="stack gap10" style={{ marginTop: 10 }}>
               {results.length === 0 ? (
                 <div className="card empty" style={{ padding: 22 }}>

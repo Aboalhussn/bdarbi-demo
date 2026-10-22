@@ -90,7 +90,10 @@ function ago(ms: number) {
 }
 
 export function Notifications() {
-  const { notifications, markAllRead, go } = useStore();
+  const { notifications: mine, captainNotifs, markAllRead: markAll, go, route } = useStore();
+  const as: 'passenger' | 'captain' = route.params?.as === 'captain' ? 'captain' : 'passenger';
+  const notifications = as === 'captain' ? captainNotifs : mine;
+  const markAllRead = () => markAll(as);
   const unread = notifications.filter((n) => !n.read).length;
   return (
     <div className="screen gray">
