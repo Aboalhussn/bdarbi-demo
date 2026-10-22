@@ -331,82 +331,81 @@ export function Ticket() {
 
   return (
     <div className="screen navy hero" style={{ borderRadius: 0 }}>
-      <div className="scroll" style={{ paddingTop: 'var(--safe-top)', paddingBottom: 'calc(24px + var(--safe-bottom))' }}>
-        <div className="row gap14" style={{ padding: '14px 20px 0', alignItems: 'center' }}>
-          <img src="./img/mascot.png" alt="" style={{ height: 250, width: 'auto', flexShrink: 0, marginBottom: -16 }} />
-          <div className="grow">
+      {/* Fixed layout: everything fits the screen, nothing scrolls. Sizes follow the screen height. */}
+      <div className="tk-fixed">
+        <div className="tk-head">
+          <img className="tk-mascot" src="./img/mascot.png" alt="" />
+          <div className="grow tk-title">
             {fresh ? (
               <>
-                <div style={{ width: 42, height: 42, borderRadius: '50%', background: '#2FB36B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="check" size={24} stroke={3} /></div>
-                <h1 style={{ fontSize: 28, fontWeight: 800, marginTop: 8 }}>تم الحجز!</h1>
-                <p style={{ margin: 0, color: 'rgba(255,255,255,.8)', fontSize: 14 }}>رحلة سعيدة يا {name && name !== 'ضيف' ? name : b.name.split(' ')[0]}، تذكرتك هنا وبـ «رحلاتي».</p>
+                <div className="tk-check"><Icon name="check" size={22} stroke={3} /></div>
+                <h1>تم الحجز!</h1>
+                <p>رحلة سعيدة يا {name && name !== 'ضيف' ? name : b.name.split(' ')[0]}، تذكرتك هنا وبـ «رحلاتي».</p>
               </>
             ) : (
               <>
-                <h1 style={{ fontSize: 30, fontWeight: 800 }}>تذكرتك</h1>
-                <p style={{ margin: 0, color: 'rgba(255,255,255,.8)', fontSize: 14 }}>{trip.from} ← {trip.to} · {longDate(b.date)}</p>
+                <h1>تذكرتك</h1>
+                <p>{trip.from} ← {trip.to} · {longDate(b.date)}</p>
               </>
             )}
           </div>
         </div>
 
-        <div className="ticket" style={{ margin: '6px 20px 0' }}>
-          {boarded ? <div style={{ background: 'var(--success-bg)', color: 'var(--success)', padding: '10px 20px', fontWeight: 700 }}>صعدت ✓ <span className="num" style={{ fontWeight: 600 }}><Time v={boarded} /></span> — رحلة سعيدة!</div> : null}
-          {cancelled ? <div style={{ background: 'var(--alert-bg)', color: 'var(--alert)', padding: '10px 20px', fontWeight: 700 }}>هذا الحجز ملغي</div> : null}
-          <div style={{ padding: '18px 20px 14px' }}>
+        <div className="ticket tk-card">
+          {boarded ? <div className="tk-banner ok">صعدت ✓ <span className="num" style={{ fontWeight: 600 }}><Time v={boarded} /></span> — رحلة سعيدة!</div> : null}
+          {cancelled ? <div className="tk-banner bad">هذا الحجز ملغي</div> : null}
+          <div className="tk-top">
             <div className="row" style={{ justifyContent: 'space-between' }}>
               <span className="bold">{trip.company}</span>
               <span className="code small muted" style={{ letterSpacing: 1 }}>#{b.code}</span>
             </div>
-            <div className="row gap12" style={{ marginTop: 14 }}>
+            <div className="row gap12 tk-times">
               <div>
-                <div className="num" style={{ fontWeight: 800, fontSize: 26, color: 'var(--navy)' }}><Time v={trip.time} /></div>
+                <div className="num tk-time"><Time v={trip.time} /></div>
                 <div className="small muted">{trip.from} · {garage.name.replace('كراج ', '')}</div>
               </div>
               <span className="dash" />
               <span style={{ color: 'var(--mist)' }}><Icon name="bus" size={20} /></span>
               <span className="dash" />
               <div style={{ textAlign: 'left' }}>
-                <div className="num" style={{ fontWeight: 800, fontSize: 26, color: 'var(--navy)' }}><Time v={trip.arrive} /></div>
+                <div className="num tk-time"><Time v={trip.arrive} /></div>
                 <div className="small muted">{trip.to} · {garageById(trip.endGarageId).name.replace('كراج ', '')}</div>
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 10, marginTop: 16 }}>
+            <div className="tk-grid">
               <div><div className="tiny muted">التاريخ</div><div className="bold small">{longDate(b.date)}</div></div>
               <div><div className="tiny muted">المقاعد</div><div className="bold small">{b.seats.join('، ')}</div></div>
               <div><div className="tiny muted">الرصيف</div><div className="bold small num" style={{ direction: 'ltr', textAlign: 'right' }}>{trip.platform}</div></div>
             </div>
-            <div className="row small" style={{ justifyContent: 'space-between', marginTop: 12 }}>
+            <div className="row small tk-pay" style={{ justifyContent: 'space-between' }}>
               <span className="muted">{b.name} · {b.pay}</span>
               <b className="num">{money(b.total)} د.ع</b>
             </div>
           </div>
           <div className="cut"><i /></div>
-          <div className="row gap14" style={{ padding: '12px 20px 22px' }}>
-            <div style={{ opacity: cancelled ? 0.25 : 1 }}><QR text={ticketPayload(b)} /></div>
+          <div className="row gap14 tk-qr-row">
+            <div className="tk-qr" style={{ opacity: cancelled ? 0.25 : 1 }}><QR text={ticketPayload(b)} /></div>
             <div className="grow">
               <div className="bold">اعرض الرمز للسائق</div>
-              <div className="small muted" style={{ marginTop: 4 }}>إذا ما اشتغل المسح، السائق يكتب هذا الرمز:</div>
-              <div className="code" style={{ fontSize: 22, color: 'var(--navy)', marginTop: 4 }}>{b.code}</div>
+              <div className="small muted" style={{ marginTop: 2 }}>إذا ما اشتغل المسح، السائق يكتب هذا الرمز:</div>
+              <div className="code tk-code">{b.code}</div>
             </div>
           </div>
         </div>
 
-        {!cancelled && !past ? (
-          <div style={{ margin: '16px 20px 0' }}>
-            <button className="btn" style={{ background: 'var(--gold)', color: '#2A1A00' }} onClick={() => go('track', { code: b.code })}>
+        <div className="tk-actions">
+          {!cancelled && !past ? (
+            <button className="btn tk-btn" style={{ background: 'var(--gold)', color: '#2A1A00' }} onClick={() => go('track', { code: b.code })}>
               <Icon name="pin" size={20} /> تتبع الباص
             </button>
-          </div>
-        ) : null}
-        <div className="row gap10" style={{ margin: '12px 20px 0' }}>
-          <button className="btn sm" style={{ background: 'rgba(255,255,255,.12)' }} disabled={saving} onClick={() => void download()}><Icon name="download" size={18} /> {saving ? 'جاري الحفظ…' : 'تنزيل صورة التكت'}</button>
-          {!cancelled && !boarded && !past ? (
-            <button className="btn sm" style={{ background: 'rgba(255,255,255,.12)' }} onClick={() => setConfirmCancel(true)}><Icon name="x" size={18} /> إلغاء الحجز</button>
           ) : null}
-        </div>
-        <div style={{ margin: '12px 20px 0' }}>
-          <button className="btn light" onClick={() => reset('home')}>رجوع للرئيسية</button>
+          <div className="row gap10">
+            <button className="btn sm" style={{ background: 'rgba(255,255,255,.12)' }} disabled={saving} onClick={() => void download()}><Icon name="download" size={18} /> {saving ? 'جاري الحفظ…' : 'تنزيل صورة التكت'}</button>
+            {!cancelled && !boarded && !past ? (
+              <button className="btn sm" style={{ background: 'rgba(255,255,255,.12)' }} onClick={() => setConfirmCancel(true)}><Icon name="x" size={18} /> إلغاء الحجز</button>
+            ) : null}
+          </div>
+          <button className="btn light tk-btn" onClick={() => reset('home')}>رجوع للرئيسية</button>
         </div>
       </div>
       <Sheet open={confirmCancel} onClose={() => setConfirmCancel(false)} label="إلغاء الحجز">
