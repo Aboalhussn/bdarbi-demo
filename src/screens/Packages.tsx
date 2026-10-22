@@ -59,7 +59,7 @@ export function PackageList() {
   const [cat, setCat] = useState('الكل');
   const today = todayIso();
   const list = packages
-    .filter((p) => p.date >= today && (cat === 'الكل' || p.type === cat))
+    .filter((p) => p.status !== 'pending' && p.date >= today && (cat === 'الكل' || p.type === cat))
     .sort((a, b) => a.date.localeCompare(b.date));
   return (
     <>
@@ -483,10 +483,10 @@ export function PkgCreate() {
     const v = findVehicle(agencyVehicles, d.vehicleId);
     if (d.includes.includes('transport') && !details.transport && v) details.transport = `${vLabel(v)} مقعد ذهاب وإياب`;
     if (d.includes.includes('hotel') && d.hotel) details.hotel = `${d.hotel.name} ${d.hotel.stars}★ · ${nights === 1 ? 'ليلة' : nights === 2 ? 'ليلتين' : `${nights} ليالي`}`;
-    const pkg: Package = { ...d, details, hotel: d.includes.includes('hotel') ? { ...d.hotel!, nights } : undefined, id: 'p' + Date.now(), office: agencyInfo.name, officeRating: '4.8', mine: true, booked: 0, createdAt: Date.now(), title: d.title.trim() };
+    const pkg: Package = { ...d, details, hotel: d.includes.includes('hotel') ? { ...d.hotel!, nights } : undefined, id: 'p' + Date.now(), office: agencyInfo.name, officeRating: '4.8', mine: true, booked: 0, createdAt: Date.now(), title: d.title.trim(), status: 'pending' };
     set({ packages: [...packages, pkg] });
     const driver = agencyDrivers.find((x) => x.vehicleId === d.vehicleId);
-    showToast(`انتشرت السفرة${driver ? ` ووصلت للسائق ${driver.name.split(' ')[0]}` : ''}`);
+    showToast(`انرسلت السفرة للإدارة — تنتشر بعد الموافقة${driver ? `، ووصلت للسائق ${driver.name.split(' ')[0]}` : ''}`);
     reset('agencyHome');
     go('agencyTrips', { tab: 'pkg' });
   };
@@ -728,7 +728,7 @@ export function OfficePackages() {
             <b>{p.title}</b>
             <span className="tiny muted">{longDate(p.date)} · {durationLabel(p)}</span>
             <span className="ag-bar"><i style={{ width: `${Math.min(100, (p.booked / Math.max(1, p.seats)) * 100)}%` }} /></span>
-            <span className="tiny"><b className="num">{p.booked}/{p.seats}</b> محجوز</span>
+            <span className="tiny">{p.status === 'pending' ? <span className="pill warn" style={{ height: 22, fontSize: 11 }}>بانتظار موافقة الإدارة</span> : <><b className="num">{p.booked}/{p.seats}</b> محجوز</>}</span>
           </span>
         </button>
       ))}

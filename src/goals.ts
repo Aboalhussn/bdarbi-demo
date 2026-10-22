@@ -17,7 +17,7 @@ export interface Goal {
 
 /** Captain challenges. Earlier progress is demo data; today's trip and scans count live. */
 export function useGoals() {
-  const { trip, manifest, boardedAt, bookings, goalsClaimed } = useStore();
+  const { trip, manifest, boardedAt, bookings, goalsClaimed, adminGoals } = useStore();
   const today = manifest().filter((b) => b.status === 'confirmed');
   const scanned = today.filter((b) => boardedAt(b)).length;
   const done = trip.status === 'arrived' ? 1 : 0;
@@ -34,6 +34,7 @@ export function useGoals() {
     { id: 'gWeek', icon: 'trophy', title: '10 رحلات هالأسبوع', hint: 'ينتهي الجمعة', reward: 60000, progress: 7 + done, target: 10, unit: 'رحلة', claimed: c('gWeek') },
     { id: 'gRate', icon: 'star', title: 'حافظ على تقييم ★ 4.8 لآخر الشهر', hint: rating >= 4.8 ? `تقييمك هسه ★ ${rating.toFixed(1)} — ماشي صح` : `تقييمك نزل لـ ★ ${rating.toFixed(1)}`, reward: 40000, extra: 'شارة «كابتن مميّز»', progress: 18, target: 30, unit: 'يوم', claimed: c('gRate') },
     { id: 'gNoCancel', icon: 'shield', title: 'أسبوعين بدون ما تلغي رحلة', hint: cancelled ? 'ألغيت رحلة اليوم، فالعداد رجع من الصفر' : 'كل يوم بدون إلغاء ينحسب', reward: 15000, progress: cancelled ? 0 : 9, target: 14, unit: 'يوم', claimed: c('gNoCancel') },
+    ...adminGoals.map((g) => ({ id: g.id, icon: 'trophy', title: g.title, hint: 'تحدي جديد من الإدارة', reward: g.reward, progress: 0, target: g.target, unit: g.unit, isNew: true, claimed: c(g.id) })),
   ];
   const ready = goals.filter((g) => g.progress >= g.target && !g.claimed);
   const won = goals.filter((g) => g.claimed);

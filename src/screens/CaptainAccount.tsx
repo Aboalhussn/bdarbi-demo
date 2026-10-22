@@ -252,7 +252,6 @@ export function DriverProfile() {
     ...(office ? [] : [['wallet', `المحفظة والأرباح · ${money(earn.balance)} د.ع`, () => go('captainWallet')] as [string, string, () => void]]),
     ['bus', office ? 'مركبتي' : 'مركبتي والمستمسكات', () => go('captainVehicle')],
     ['shield', 'سياسة الخصوصية والاستخدام', () => go('policy')],
-    ['swap', 'ارجع لتطبيق المسافر', () => { set({ role: null, agencyDriverId: null }); reset('login'); }],
     ['info', 'عن النسخة التجريبية', () => setAbout(true)],
     ['refresh', 'مسح بيانات التجربة', () => setWipe(true)],
     ['chat', 'الدعم', () => go('support', { as: 'captain' })],
@@ -299,7 +298,7 @@ export function DriverProfile() {
               <Icon name="forward" size={18} />
             </button>
           ))}
-          <button className="list-item" onClick={() => { set({ role: null, agencyDriverId: null }); reset('login'); go('login', { driver: true }); }} style={{ color: 'var(--alert)' }}>
+          <button className="list-item" onClick={() => { set({ role: null, agencyDriverId: null }); reset('login'); }} style={{ color: 'var(--alert)' }}>
             <span className="ic" style={{ background: 'var(--alert-bg)', color: 'var(--alert)' }}><Icon name="logout" size={22} /></span>
             <span className="grow bold">تسجيل خروج</span>
           </button>

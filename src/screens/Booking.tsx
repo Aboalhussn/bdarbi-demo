@@ -559,8 +559,6 @@ export function Profile() {
     ['ticket', 'رحلاتي', () => go('myTrips')],
     ['gift', 'المكافآت والكوبونات', () => go('rewards')],
     ['shield', 'سياسة الخصوصية والاستخدام', () => go('policy')],
-    ['wheel', 'جرّب تطبيق كابتن بدربي', () => { set({ role: null }); reset('login'); go('login', { driver: true }); }],
-    ['bus', 'جرّب حساب مكاتب السفر', () => { set({ role: null }); reset('login'); go('login', { agency: true }); }],
     ['info', 'عن النسخة التجريبية', () => setAbout(true)],
     ['refresh', 'مسح بيانات التجربة', () => setWipe(true)],
     ['chat', 'الدعم', () => go('support', { as: 'passenger' })],

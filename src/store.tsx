@@ -3,7 +3,7 @@ import { agencyManifest, seedAgencyTrips, span, SEED_DRIVERS, SEED_VEHICLES, AGE
 import { seedPackages, type Package, type PkgBooking } from './packages';
 import { DEMO_PASSENGERS, DRIVER_TRIP_ID, TRIPS, fmt12, todayIso, tripById, type VehicleKind } from './data';
 
-export type Role = 'passenger' | 'driver' | 'agency';
+export type Role = 'passenger' | 'driver' | 'agency' | 'admin';
 
 export interface Passenger {
   seat: number;
@@ -129,6 +129,10 @@ interface Persisted {
   agencyDriverId: string | null; // set when the signed-in captain is an office driver
   packages: Package[];
   pkgBookings: PkgBooking[];
+  adminRequests: AdminRequest[];
+  adminThreads: AdminThread[];
+  adminGoals: AdminGoal[];
+  payouts: Payout[];
   captainNotifs: Notif[];
   captainCard: SavedCard | null; // where the captain's earnings are paid out
   goalsClaimed: string[]; // ids of captain challenges whose reward was collected
@@ -146,6 +150,46 @@ export interface CaptainProfile {
 
 export interface Withdrawal {
   id: string;
+  amount: number;
+  method: string;
+  at: number;
+  status: 'pending' | 'paid';
+}
+
+export interface AdminRequest {
+  id: string;
+  name: string;
+  phone: string;
+  kind: 'captain' | 'office';
+  detail: string; // e.g. "كوستر 14" or "6 مركبات"
+  info: [string, string][]; // what the app read from the documents
+  at: number;
+  status: 'pending' | 'approved' | 'rejected';
+  reason?: string;
+  fromDevice?: boolean; // the captain who signed up on this phone
+}
+
+export interface AdminThread {
+  id: string;
+  name: string;
+  who: 'مسافر' | 'كابتن' | 'مكتب' | 'سائق مكتب';
+  phone: string;
+  msgs: ChatMsg[];
+  read: boolean;
+}
+
+export interface AdminGoal {
+  id: string;
+  title: string;
+  reward: number;
+  target: number;
+  unit: string;
+}
+
+export interface Payout {
+  id: string;
+  name: string;
+  who: string;
   amount: number;
   method: string;
   at: number;
@@ -174,7 +218,7 @@ export interface Route {
   params?: Record<string, unknown>;
 }
 
-const KEY = 'bdarbi-demo-v1';
+const KEY = import.meta.env.VITE_APP === 'partner' ? 'bdarbi-partner-v1' : 'bdarbi-demo-v1';
 
 const initial: Persisted = {
   onboarded: false,
@@ -212,6 +256,33 @@ const initial: Persisted = {
   agencyDriverId: null,
   packages: seedPackages(todayIso()),
   pkgBookings: [],
+  adminRequests: [
+    { id: 'r1', name: 'مرتضى سالم جبار', phone: '7701234567', kind: 'captain', detail: 'كوستر 14', at: Date.now() - 2 * 864e5, status: 'pending', info: [['رقم الإجازة', '4471029'], ['تنتهي الإجازة', '2028/03/14'], ['السيارة', 'تويوتا كوستر 2019 · فضي'], ['اللوحة', 'بغداد 33120 ب'], ['السنوية تنتهي', '2026/12/01']] },
+    { id: 'r2', name: 'سيف علي حسين', phone: '7809876543', kind: 'captain', detail: 'سيارة 4', at: Date.now() - 864e5, status: 'pending', info: [['رقم الإجازة', '5530912'], ['تنتهي الإجازة', '2027/07/02'], ['السيارة', 'تويوتا كامري 2021 · أبيض'], ['اللوحة', 'بغداد 77810 ج'], ['السنوية تنتهي', '2027/01/20']] },
+    { id: 'r3', name: 'مكتب الرافدين للسفر', phone: '7701112233', kind: 'office', detail: '6 مركبات', at: Date.now() - 5 * 36e5, status: 'pending', info: [['إجازة الشركة', 'ش.م 2291'], ['العنوان', 'بغداد، المنصور'], ['المدير', 'عماد حسن'], ['المركبات', '2 باص · 3 كوستر · GMC']] },
+    { id: 'r4', name: 'حيدر كاظم', phone: '7505556677', kind: 'captain', detail: 'باص 40', at: Date.now() - 3 * 36e5, status: 'pending', info: [['رقم الإجازة', '3398120'], ['تنتهي الإجازة', '2029/02/11'], ['السيارة', 'كينغ لونغ 2020 · أبيض'], ['اللوحة', 'البصرة 20931 د'], ['السنوية تنتهي', '2026/11/05']] },
+  ],
+  adminThreads: [
+    { id: 't1', name: 'علي حسن', who: 'مسافر', phone: '7701234567', read: false, msgs: [
+      { id: 'a', from: 'me', text: 'هلا، حجزت رحلة بغداد ← البصرة وانلغت من الكابتن. أريد أسترجع فلوسي', at: Date.now() - 22 * 6e4 },
+      { id: 'b', from: 'me', text: 'رمز الحجز K7Q2XM', at: Date.now() - 20 * 6e4 },
+    ] },
+    { id: 't2', name: 'زينب علي', who: 'مسافر', phone: '7712223344', read: false, msgs: [
+      { id: 'a', from: 'me', text: 'نسيت جنطة سودة بالباص، رحلة كربلاء الصبح', at: Date.now() - 2 * 36e5 },
+    ] },
+    { id: 't3', name: 'سلام حميد', who: 'سائق مكتب', phone: '7801110002', read: true, msgs: [
+      { id: 'a', from: 'me', text: 'ما أگدر أدخل للتطبيق', at: Date.now() - 864e5 },
+      { id: 'b', from: 'support', text: 'تأكد الرقم نفس اللي سجّله المكتب، وجرب مرة ثانية.', at: Date.now() - 863e5 },
+    ] },
+  ],
+  adminGoals: [],
+  payouts: [
+    { id: 'w1', name: 'كريم عبد الله', who: 'سائق مكتب', amount: 350000, method: 'زين كاش', at: Date.now() - 5 * 36e5, status: 'pending' },
+    { id: 'w2', name: 'آزاد كريم', who: 'كابتن', amount: 520000, method: 'كي كارد', at: Date.now() - 9 * 36e5, status: 'pending' },
+    { id: 'w3', name: 'مكتب دجلة', who: 'مكتب', amount: 1240000, method: 'حساب مصرفي', at: Date.now() - 26 * 36e5, status: 'pending' },
+    { id: 'w4', name: 'علي جبار', who: 'كابتن', amount: 180000, method: 'زين كاش', at: Date.now() - 3 * 864e5, status: 'paid' },
+  ],
+
   captainNotifs: [
     { id: 'cn1', at: 0, icon: 'trophy', title: 'تحدي جديد 🏆', body: 'خلّص 3 رحلات خلال يومين واربح 25,000 د.ع تنضاف لمحفظتك.', read: false, tone: 'ok', link: { name: 'driverGoals' } },
     { id: 'cn0', at: 0, icon: 'star', title: 'تقييمك ★ 4.9', body: 'تقييمك عالي، فرحلاتك تطلع بأول نتائج البحث للمسافرين. كمّل هيج!', read: true, tone: 'info' },

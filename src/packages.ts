@@ -63,6 +63,7 @@ export interface Package {
   cancelDays: number; // free cancellation until N days before
   docs: string[];
   createdAt: number;
+  status?: 'pending' | 'published'; // a new office package waits for the admin
 }
 
 export interface PkgBooking {

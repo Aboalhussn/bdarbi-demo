@@ -9,7 +9,8 @@
     "build": "tsc --noEmit && vite build",
     "check": "tsc --noEmit",
     "preview": "vite preview",
-    "apk": "npm run build && npx cap sync android && cd android && ./gradlew assembleDebug"
+    "apk": "npm run build && npx cap sync android && cd android && ./gradlew assembleDebug",
+    "build:partner": "tsc --noEmit && vite build --mode partner"
   },
   "dependencies": {
     "@capacitor/app": "^7.1.0",

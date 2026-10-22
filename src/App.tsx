@@ -3,7 +3,9 @@ import { Capacitor } from '@capacitor/core';
 import { App as CapApp } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { useStore } from './store';
-import { Login, OnboardLocation, OnboardNotify, Otp, Register, Splash } from './screens/Welcome';
+import { Login, OnboardLocation, OnboardNotify, Otp, PartnerLogin, Register, Splash } from './screens/Welcome';
+import { AdminApp } from './screens/Admin';
+import { IS_PARTNER } from './mode';
 import { Garages, Home, Rewards, Search, Trips } from './screens/Discover';
 import { Checkout, MyTrips, Profile, Seats, Ticket } from './screens/Booking';
 import { Coaster, HotelDetails, Hotels } from './screens/Hotels';
@@ -23,7 +25,7 @@ const SCREENS: Record<string, ComponentType> = {
   splash: Splash,
   onboardLocation: OnboardLocation,
   onboardNotify: OnboardNotify,
-  login: Login,
+  login: IS_PARTNER ? PartnerLogin : Login,
   register: Register,
   otp: Otp,
   home: Home,
@@ -46,6 +48,7 @@ const SCREENS: Record<string, ComponentType> = {
   notifications: Notifications,
   support: Support,
   pay: Pay,
+  admin: AdminApp,
   package: PackageDetail,
   packageBook: PackageBook,
   pkgTicket: PkgTicket,
@@ -75,10 +78,10 @@ const SCREENS: Record<string, ComponentType> = {
 };
 
 // Screens whose top edge is navy get a navy status bar; the rest get white.
-const NAVY_TOP = new Set(['splash', 'login', 'trips', 'ticket', 'profile', 'driverHome', 'driverProfile', 'driverScan', 'driverGoals', 'agencyHome', 'agencyProfile']);
+const NAVY_TOP = new Set(['splash', 'login', 'trips', 'ticket', 'profile', 'driverHome', 'driverProfile', 'driverScan', 'driverGoals', 'agencyHome', 'agencyProfile', 'admin']);
 
 export default function App() {
-  const { route, stackDepth, back, toast } = useStore();
+  const { route, stackDepth, back, toast, role } = useStore();
   const Screen = SCREENS[route.name] ?? Home;
 
   useEffect(() => {
@@ -106,7 +109,7 @@ export default function App() {
   }, [route.name]);
 
   return (
-    <div className="app">
+    <div className={`app ${role === 'admin' ? 'app-admin' : ''}`}>
       <Screen key={`${stackDepth}-${route.name}`} />
       {toast ? <div className="toast" role="status">{toast}</div> : null}
     </div>

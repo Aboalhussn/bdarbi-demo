@@ -1,6 +1,6 @@
-# Builds the Android APK on every push to main and publishes it as the newest GitHub Release.
-# Direct download link for the latest build (send this to anyone):
-#   https://github.com/Aboalhussn/bdarbi-demo/releases/latest/download/bdarbi-demo.apk
+# Builds the two Android apps on every push to main and publishes them as the newest GitHub Release:
+#   بدربي (passengers)                         https://github.com/Aboalhussn/bdarbi-demo/releases/latest/download/bdarbi-demo.apk
+#   كابتن بدربي (captains, offices and admin)   https://github.com/Aboalhussn/bdarbi-demo/releases/latest/download/bdarbi-partner.apk
 name: Android APK
 
 on:
@@ -34,17 +34,18 @@ jobs:
       - name: Install
         run: npm ci
 
-      - name: Type-check and build the app
-        run: npm run build
-
-      - name: Copy the app into the Android project
-        run: npx cap sync android
-
       - name: Number this build so phones install it as an update
         run: |
           sed -i -E "s/versionCode [0-9]+/versionCode ${{ github.run_number }}/; s/versionName \"[^\"]*\"/versionName \"1.0.${{ github.run_number }}\"/" android/app/build.gradle
 
-      - name: Build APK
+      # 1) The passenger app «بدربي»
+      - name: Build the passenger app
+        run: npm run build
+
+      - name: Copy it into the Android project
+        run: npx cap sync android
+
+      - name: Build the passenger APK
         working-directory: android
         run: |
           chmod +x gradlew
@@ -52,10 +53,29 @@ jobs:
 
       - run: cp android/app/build/outputs/apk/debug/app-debug.apk bdarbi-demo.apk
 
+      # 2) The partner app «كابتن بدربي»: same code, built in partner mode, with its own id and name
+      - name: Build the partner app
+        run: npm run build:partner
+
+      - name: Give the partner app its own id and name
+        run: |
+          sed -i "s/appId: 'iq.bdarbi.demo'/appId: 'iq.bdarbi.partner'/; s/appName: 'بدربي'/appName: 'كابتن بدربي'/" capacitor.config.ts
+          sed -i 's/applicationId "iq.bdarbi.demo"/applicationId "iq.bdarbi.partner"/' android/app/build.gradle
+          sed -i 's|<string name="app_name">بدربي</string>|<string name="app_name">كابتن بدربي</string>|; s|<string name="title_activity_main">بدربي</string>|<string name="title_activity_main">كابتن بدربي</string>|' android/app/src/main/res/values/strings.xml
+          npx cap sync android
+
+      - name: Build the partner APK
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - run: cp android/app/build/outputs/apk/debug/app-debug.apk bdarbi-partner.apk
+
       - uses: actions/upload-artifact@v4
         with:
-          name: bdarbi-demo-apk
-          path: bdarbi-demo.apk
+          name: bdarbi-apks
+          path: |
+            bdarbi-demo.apk
+            bdarbi-partner.apk
 
       - name: Publish as the latest release
         uses: softprops/action-gh-release@v2
@@ -65,7 +85,10 @@ jobs:
           target_commitish: ${{ github.sha }}
           make_latest: true
           body: |
-            نسخة تجريبية من تطبيق بدربي (Demo).
-            - نزّل `bdarbi-demo.apk` وافتحه بالتلفون (اسمح بالتثبيت من هذا المصدر).
-            - كل نسخة جديدة تنزل فوق القديمة كتحديث.
-          files: bdarbi-demo.apk
+            نسخة تجريبية (Demo) من تطبيقين:
+            - `bdarbi-demo.apk` — تطبيق المسافر «بدربي».
+            - `bdarbi-partner.apk` — تطبيق «كابتن بدربي» للكباتن ومكاتب السفر والإدارة (الإدارة برقم 0711 111 1111).
+            كل نسخة جديدة تنزل فوق القديمة كتحديث.
+          files: |
+            bdarbi-demo.apk
+            bdarbi-partner.apk

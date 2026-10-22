@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Icon, Logo } from '../icons';
 import { useStore } from '../store';
+import { ADMIN_PHONE, IS_PARTNER } from '../mode';
 
 export function Splash() {
   const { reset, role, onboarded } = useStore();
@@ -12,9 +13,15 @@ export function Splash() {
   }, []);
   useEffect(() => {
     const t = window.setTimeout(() => {
+      if (IS_PARTNER) {
+        // The partner app: captains, travel offices and the admin.
+        if (role === 'driver') reset('driverHome');
+        else if (role === 'agency') reset('agencyHome');
+        else if (role === 'admin') reset('admin');
+        else reset('login');
+        return;
+      }
       if (role === 'passenger') reset('home');
-      else if (role === 'driver') reset('driverHome');
-      else if (role === 'agency') reset('agencyHome');
       else if (onboarded) reset('login');
       else reset('onboardLocation');
     }, 3000);
@@ -42,8 +49,8 @@ export function Splash() {
           (dead centre) and glides up into place, so the two screens join up. */}
       <div className="splash-group" ref={groupRef} style={{ ['--settle' as string]: `${settle}px` }}>
         <Logo className="logo" size={140} />
-        <div className="word">بدربي</div>
-        <div className="tag">مقعدك محجوز... بدربك</div>
+        <div className="word">{IS_PARTNER ? 'كابتن بدربي' : 'بدربي'}</div>
+        <div className="tag">{IS_PARTNER ? 'للكباتن ومكاتب السفر' : 'مقعدك محجوز... بدربك'}</div>
         <div className="road" role="progressbar" aria-label="جاري التحميل">
           <div className="line" />
           <div className="start" />
@@ -225,7 +232,7 @@ export function Login() {
               <button className="btn ghost" onClick={() => go('register')}>
                 <Icon name="user" size={20} /> إنشاء حساب جديد
               </button>
-              <div className="row" style={{ justifyContent: 'center', gap: 18, margin: '10px 0 8px' }}>
+              <div className="row" style={{ justifyContent: 'center', gap: 18, margin: '10px 0 30px' }}>
                 <button
                   className="link muted"
                   onClick={() => {
@@ -235,12 +242,7 @@ export function Login() {
                 >
                   أكمل كضيف
                 </button>
-                <span style={{ width: 1, height: 18, background: '#E4E2EE' }} />
-                <button className="link" onClick={() => go('login', { driver: true })}>دخول الكابتن</button>
               </div>
-              <button className="link small" style={{ margin: '6px auto 30px', display: 'flex', alignItems: 'center', gap: 6 }} onClick={() => go('login', { agency: true })}>
-                <Icon name="bus" size={16} /> دخول مكاتب السفر
-              </button>
             </>
           )}
         </div>
@@ -304,7 +306,7 @@ export function Register() {
 }
 
 export function Otp() {
-  const { route, back, reset, set, captain, agencyDrivers } = useStore();
+  const { route, back, reset, set, captain, agencyDrivers, agencyInfo } = useStore();
   const phone = String(route.params?.phone ?? '');
   const driver = route.params?.driver === true;
   const agency = route.params?.agency === true;
@@ -323,6 +325,28 @@ export function Otp() {
     if (code.length !== 4) return;
     setChecking(true);
     const t = window.setTimeout(() => {
+      if (IS_PARTNER) {
+        // In the partner app the number decides who signs in.
+        const digits = phone.replace(/\s/g, '');
+        if (digits === ADMIN_PHONE) {
+          set({ role: 'admin', agencyDriverId: null });
+          reset('admin');
+          return;
+        }
+        if (digits === agencyInfo.phone.replace(/\s/g, '')) {
+          set({ role: 'agency', agencyDriverId: null });
+          reset('agencyHome');
+          return;
+        }
+        if (captain?.status === 'pending' && captain.phone === phone) {
+          reset('captainPending');
+          return;
+        }
+        const officeDriver = agencyDrivers.find((d) => d.phone === digits);
+        set({ role: 'driver', agencyDriverId: officeDriver?.id ?? null });
+        reset('driverHome');
+        return;
+      }
       // A captain whose sign-up is still being reviewed goes to the waiting screen.
       if (driver && captain?.status === 'pending' && captain.phone === phone) {
         reset('captainPending');
@@ -339,7 +363,7 @@ export function Otp() {
       reset(driver ? 'driverHome' : 'home');
     }, 600);
     return () => window.clearTimeout(t);
-  }, [code, driver, agency, name, phone, reset, set, agencyDrivers]);
+  }, [code, driver, agency, name, phone, reset, set, agencyDrivers, agencyInfo]);
 
   const press = (d: string) => {
     if (checking) return;
@@ -384,6 +408,73 @@ export function Otp() {
           <button onClick={() => press('0')}>0</button>
           <button aria-label="حذف" onClick={() => press('del')} style={{ background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Icon name="forward" size={24} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Sign-in for the partner app «كابتن بدربي»: one form for captains, office drivers, travel offices and the admin. */
+export function PartnerLogin() {
+  const { go, agencyInfo } = useStore();
+  const [phone, setPhone] = useState('');
+  const [pass, setPass] = useState('');
+  const [show, setShow] = useState(false);
+  const [err, setErr] = useState('');
+  const [passErr, setPassErr] = useState('');
+  const submit = () => {
+    const e = phoneError(phone);
+    setErr(e);
+    const pe = pass.length < 4 ? 'كلمة السر 4 أحرف أو أكثر' : '';
+    setPassErr(pe);
+    if (e || pe) return;
+    go('otp', { phone, driver: true });
+  };
+  const demo: [string, string][] = [
+    ['كابتن', '780 111 2222'],
+    ['سائق مكتب', '770 111 0001'],
+    ['مكتب سفر', agencyInfo.phone],
+    ['الإدارة', '711 111 1111'],
+  ];
+  return (
+    <div className="screen">
+      <div className="scroll">
+        <div className="hero" style={{ position: 'relative', height: 280, overflow: 'hidden', paddingTop: 'var(--safe-top)' }}>
+          <div style={{ position: 'absolute', top: 'calc(48px + var(--safe-top))', right: 26, width: 230 }}>
+            <div className="row gap8" style={{ opacity: 0.9 }}>
+              <Logo size={30} />
+              <span style={{ fontFamily: 'var(--display)', fontWeight: 800, fontSize: 20 }}>كابتن بدربي</span>
+            </div>
+            <h1 style={{ fontSize: 28, fontWeight: 800, marginTop: 10, lineHeight: 1.35 }}>أهلاً بيك</h1>
+            <p style={{ margin: '8px 0 0', color: 'rgba(255,255,255,.78)' }}>للكباتن ومكاتب السفر والإدارة. ادخل برقمك وكل واحد يطلعله حسابه.</p>
+          </div>
+          <img src="./img/driver.png" alt="" style={{ position: 'absolute', left: 18, bottom: 0, height: 190, width: 'auto' }} />
+        </div>
+        <div className="pad stack gap6" style={{ marginTop: 22 }}>
+          <PhoneField value={phone} onChange={(v) => { setPhone(v); if (err) setErr(''); }} error={err} />
+          <div className="field">
+            <label htmlFor="pass">كلمة السر</label>
+            <div className={`phone ${passErr ? 'bad' : ''}`} style={{ direction: 'rtl' }}>
+              <input id="pass" type={show ? 'text' : 'password'} placeholder="••••••••" value={pass} onChange={(e) => { setPass(e.target.value); setPassErr(''); }} style={{ textAlign: 'right', letterSpacing: show ? 0 : 2, fontFamily: 'var(--text)' }} />
+              <button aria-label="إظهار كلمة السر" onClick={() => setShow(!show)} style={{ width: 52, color: 'var(--slate)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="eye" size={20} />
+              </button>
+            </div>
+            <div className="err">{passErr}</div>
+          </div>
+          <button className="btn" onClick={submit}>تسجيل الدخول</button>
+          <div className="card flat stack gap6" style={{ marginTop: 12 }}>
+            <b className="small">أرقام التجربة (أي كلمة سر):</b>
+            {demo.map(([who, num]) => (
+              <button key={who} className="row small" style={{ justifyContent: 'space-between', height: 34 }} onClick={() => { setPhone(formatPhone(num)); setPass('1234'); setErr(''); setPassErr(''); }}>
+                <span className="muted">{who}</span>
+                <b className="num" dir="ltr">0{num}</b>
+              </button>
+            ))}
+          </div>
+          <button className="btn ghost" style={{ margin: '14px 0 30px' }} onClick={() => go('captainRegister')}>
+            <Icon name="user" size={20} /> كابتن جديد؟ سجّل هنا
           </button>
         </div>
       </div>

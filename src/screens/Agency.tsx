@@ -436,7 +436,6 @@ export function AgencyProfile() {
     ['user', 'معلومات المكتب', () => go('agencyInfo')],
     ['users', `السواق وحساباتهم · ${agencyDrivers.length}`, () => go('agencyDrivers')],
     ['shield', 'سياسة الخصوصية والاستخدام', () => go('policy')],
-    ['swap', 'ارجع لتطبيق المسافر', () => { set({ role: null }); reset('login'); }],
     ['info', 'عن النسخة التجريبية', () => setAbout(true)],
     ['refresh', 'مسح بيانات التجربة', () => setWipe(true)],
     ['chat', 'الدعم', () => go('support', { as: 'agency' })],
@@ -470,7 +469,7 @@ export function AgencyProfile() {
               <Icon name="forward" size={18} />
             </button>
           ))}
-          <button className="list-item" onClick={() => { set({ role: null }); reset('login'); go('login', { agency: true }); }} style={{ color: 'var(--alert)' }}>
+          <button className="list-item" onClick={() => { set({ role: null }); reset('login'); }} style={{ color: 'var(--alert)' }}>
             <span className="ic" style={{ background: 'var(--alert-bg)', color: 'var(--alert)' }}><Icon name="logout" size={22} /></span>
             <span className="grow bold">تسجيل خروج</span>
           </button>
