@@ -41,6 +41,15 @@ export interface Hotel {
   tint: string;
   rooms: { name: string; note: string; price: number }[];
   amenities: string[];
+  // Added by the admin; seeded hotels leave these empty.
+  phone?: string;
+  whatsapp?: string;
+  address?: string;
+  checkIn?: string; // HH:MM
+  checkOut?: string; // HH:MM
+  about?: string;
+  photo?: string; // data URL
+  policies?: string[];
 }
 
 export const CITIES = ['بغداد', 'البصرة', 'أربيل', 'كربلاء المقدسة', 'النجف الأشرف', 'السليمانية'];

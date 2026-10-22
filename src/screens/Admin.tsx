@@ -1,26 +1,31 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { agencyManifest, findVehicle, span, vLabel } from '../agency';
-import { HOTELS, fmt12, longDate, money, todayIso, tripById } from '../data';
+import { DRIVER_TRIP_ID, fmt12, garageById, longDate, money, todayIso, tripById } from '../data';
 import { Icon, Logo } from '../icons';
 import { durationLabel } from '../packages';
 import { PkgArtSvg } from './Packages';
-import { seededManifest, useStore, type AdminRequest, type ChatMsg } from '../store';
+import { seededManifest, useStore, type AdminRequest, type Booking, type ChatMsg } from '../store';
 import { Sheet, Time } from '../ui';
 import { formatPhone } from './Welcome';
-import { AdminCoupons, AdminGarages } from './AdminManage';
+import { AdminCoupons, AdminGarages, AdminHotels } from './AdminManage';
+import { liveOf } from '../live';
+import { captainInfo } from '../captain';
+import { phoneNotify } from '../phoneNotify';
 
 /** iPad (and any wide screen) gets the website layout; a phone gets the app layout. */
 function useWide() {
-  const [wide, setWide] = useState(() => window.innerWidth >= 820);
+  // Wide and tall enough = tablet or computer. A phone turned sideways keeps the app layout.
+  const check = () => window.innerWidth >= 820 && window.innerHeight >= 520;
+  const [wide, setWide] = useState(check);
   useEffect(() => {
-    const on = () => setWide(window.innerWidth >= 820);
+    const on = () => setWide(check());
     window.addEventListener('resize', on);
     return () => window.removeEventListener('resize', on);
   }, []);
   return wide;
 }
 
-type Section = 'overview' | 'reqs' | 'offices' | 'bookings' | 'packages' | 'support' | 'finance' | 'goals' | 'garages' | 'hotels' | 'coupons' | 'more';
+type Section = 'overview' | 'reqs' | 'offices' | 'bookings' | 'packages' | 'support' | 'finance' | 'goals' | 'garages' | 'hotels' | 'coupons' | 'settings' | 'more';
 
 const NAV: [Section, string, string][] = [
   ['overview', 'نظرة عامة', 'home'],
@@ -110,6 +115,10 @@ export function AdminApp() {
             </button>
           ))}
           <div className="grow" />
+          <button className={`adm-nav ${section === 'settings' ? 'on' : ''}`} aria-current={section === 'settings' ? 'page' : undefined} onClick={() => open('settings')} style={{ marginBottom: 8 }}>
+            <Icon name="gear" size={20} />
+            <span className="grow">الإعدادات</span>
+          </button>
           <div className="adm-me">
             <span className="adm-av">أ</span>
             <span className="grow"><b style={{ display: 'block', fontSize: 14 }}>أبو الحسن</b><span className="tiny" style={{ color: '#B9B5D3' }}>مدير النظام</span></span>
@@ -162,11 +171,12 @@ function Content({ section, id, wide, open }: { section: Section; id?: string; w
     case 'support': return <Support id={id} wide={wide} open={open} />;
     case 'finance': return <Finance wide={wide} />;
     case 'offices': return <Offices wide={wide} />;
-    case 'bookings': return <Bookings wide={wide} />;
+    case 'bookings': return <Bookings wide={wide} id={id} open={open} />;
     case 'packages': return <Packages wide={wide} />;
     case 'goals': return <Goals wide={wide} />;
     case 'garages': return <AdminGarages wide={wide} Head={Head} />;
-    case 'hotels': return <SimpleList wide={wide} title="الفنادق" rows={HOTELS.map((h) => [h.name, `${h.city} · ${h.near}`, `★ ${h.rating} · من ${money(h.from)}`])} />;
+    case 'hotels': return <AdminHotels wide={wide} Head={Head} />;
+    case 'settings': return <AdminSettings wide={wide} />;
     case 'coupons': return <AdminCoupons wide={wide} Head={Head} />;
     case 'more': return <More />;
     default: return <Overview wide={wide} open={open} />;
@@ -527,30 +537,177 @@ function Offices({ wide }: { wide: boolean }) {
   return <SimpleList wide={wide} title="المكاتب" rows={rows} />;
 }
 
-function Bookings({ wide }: { wide: boolean }) {
+type Leg = { from: string; to: string; fromGarage: string; toGarage: string; dep: number; arr: number; company: string; kind: string; price: number };
+type Who = { name: string; phone: string; vehicle: string; plate: string; office?: string };
+
+const POOL = ['عباس كريم', 'حسين علي', 'محمد جبار', 'علي سلمان', 'قاسم ناصر', 'رعد حميد', 'سلام هادي', 'ياسر فاضل'];
+const MODEL: Record<string, string> = { 'باص': 'مرسيدس ترافيغو', 'كوستر': 'تويوتا كوستر', 'سيارة': 'تويوتا كامري', 'VIP': 'GMC يوكن' };
+
+function stamp(date: string, time: string) {
+  const [y, m, d] = date.split('-').map(Number);
+  const [h, mi] = time.split(':').map(Number);
+  return new Date(y, m - 1, d, h, mi).getTime();
+}
+const clock = (ms: number) => { const d = new Date(ms); return fmt12(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`); };
+const hash = (s: string) => s.split('').reduce((n, c) => n + c.charCodeAt(0), 0);
+
+/** Everything the admin needs about one booking: the trip, who drove it, and where it is now. */
+function useBookingStory() {
+  const s = useStore();
+  return (b: Booking) => {
+    const reg = tripById(b.tripId);
+    const ag = reg ? undefined : s.agencyTrips.find((x) => x.id === b.tripId);
+    let leg: Leg | null = null;
+    let who: Who | null = null;
+    let status: 'scheduled' | 'started' | 'arrived' | 'cancelled' = 'scheduled';
+    let startedAt: number | undefined;
+    if (reg) {
+      const dep = stamp(b.date, reg.time);
+      let arr = stamp(b.date, reg.arrive);
+      if (arr <= dep) arr += 86400000;
+      leg = { from: reg.from, to: reg.to, fromGarage: garageById(reg.garageId).name, toGarage: garageById(reg.endGarageId).name, dep, arr, company: reg.company, kind: reg.kind, price: reg.price };
+      const live = liveOf(b, s.trip);
+      status = live.status;
+      startedAt = live.startedAt;
+      if (reg.id === DRIVER_TRIP_ID) {
+        const c = captainInfo(s.captain, s.captainProfile);
+        who = { name: c.name, phone: c.phone, vehicle: `${c.vehicle.kind} · ${c.vehicle.model}`, plate: c.vehicle.plate };
+      } else {
+        const k = hash(reg.id);
+        const name = reg.kind === 'سيارة' ? reg.company : POOL[k % POOL.length];
+        who = { name, phone: `07${70 + (k % 9)} ${String(100 + (k * 7) % 900)} ${String(1000 + (k * 37) % 9000)}`, vehicle: `${reg.kind} · ${MODEL[reg.kind] ?? reg.kind}`, plate: `بغداد ${String(10000 + (k * 131) % 89999)} ${'أبجد'[k % 4]}`, office: reg.kind === 'سيارة' ? undefined : reg.company };
+      }
+    } else if (ag) {
+      const dep = stamp(ag.date, ag.time);
+      const arr = dep + ag.hours * 3600000;
+      leg = { from: ag.from, to: ag.to, fromGarage: ag.garageId ? garageById(ag.garageId).name : ag.from, toGarage: ag.endGarageId ? garageById(ag.endGarageId).name : ag.to, dep, arr, company: s.agencyInfo.name, kind: findVehicle(s.agencyVehicles, ag.vehicleId)?.kind ?? '', price: ag.price };
+      const now = Date.now();
+      status = b.status === 'cancelled' || ag.status === 'cancelled' ? 'cancelled' : ag.status !== 'scheduled' ? ag.status : now >= arr ? 'arrived' : now >= dep ? 'started' : 'scheduled';
+      startedAt = dep;
+      const d = s.agencyDrivers.find((x) => x.id === ag.driverId);
+      const v = findVehicle(s.agencyVehicles, ag.vehicleId);
+      who = { name: d?.name ?? '—', phone: d ? formatPhone(d.phone) : '', vehicle: v ? `${vLabel(v)} · ${v.model}` : '—', plate: v?.plate ?? '', office: s.agencyInfo.name };
+    }
+    if (b.status === 'cancelled') status = 'cancelled';
+    return { leg, who, status, startedAt, boarded: s.boardedAt(b) };
+  };
+}
+
+const STATUS: Record<string, [string, string]> = {
+  scheduled: ['ما انطلقت بعد', 'info'],
+  started: ['بالطريق', 'warn'],
+  arrived: ['وصلت', 'ok'],
+  cancelled: ['ملغية', 'bad'],
+};
+
+function Bookings({ wide, id, open }: { wide: boolean; id?: string; open: (s: Section, sub?: string) => void }) {
   const { agencyTrips, bookings } = useStore();
+  const story = useBookingStory();
   const [q, setQ] = useState('');
   const all = [...bookings, ...seededManifest(), ...agencyTrips.flatMap(agencyManifest)];
   const label = (tid: string) => { const t = tripById(tid) ?? agencyTrips.find((x) => x.id === tid); return t ? `${t.from} ← ${t.to}` : '—'; };
-  const list = all.filter((b) => !q || b.code.includes(q.toUpperCase()) || b.name.includes(q)).slice(0, 60);
+  const key = (b: Booking) => `${b.code}~${b.tripId}`;
+  if (id) {
+    const b = all.find((x) => key(x) === id) ?? all.find((x) => x.code === id);
+    if (b) return <BookingDetail b={b} wide={wide} story={story(b)} onBack={() => open('bookings')} />;
+  }
+  const code = q.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+  const list = all.filter((b) => !code || b.code.includes(code)).slice(0, 60);
+  const pill = (b: Booking) => { const [t, c] = STATUS[story(b).status]; return <span className={`pill ${c}`}>{t}</span>; };
   return (
     <>
-      <Head wide={wide} title="الرحلات والحجوزات" sub={`${all.length} حجز`} />
+      <Head wide={wide} title="الرحلات والحجوزات" sub={`${all.length} حجز · اضغط على أي حجز تشوف شنو صار بيه`} />
       <div className={wide ? 'stack gap10' : 'pad stack gap10'}>
-        <input className="input" style={{ background: 'var(--card)' }} placeholder="دوّر برمز الحجز أو الاسم" value={q} onChange={(e) => setQ(e.target.value)} />
+        <div className="adm-search">
+          <Icon name="search" size={20} />
+          <input dir="ltr" placeholder="رمز الحجز — مثلاً K7Q2XM" value={q} maxLength={8} onChange={(e) => setQ(e.target.value)} aria-label="ابحث برمز الحجز" />
+          {q ? <button aria-label="امسح" onClick={() => setQ('')}><Icon name="x" size={18} /></button> : null}
+        </div>
+        {code && !list.length ? <div className="card center small muted" style={{ padding: 22 }}>ما اكو حجز بهذا الرمز. تأكد من الرمز اللي بالتذكرة.</div> : null}
         {wide ? (
-          <section className="adm-card">
-            <table className="adm-table">
-              <thead><tr><th>الرمز</th><th>المسافر</th><th>الرحلة</th><th>اليوم</th><th>المقاعد</th><th>الدفع</th><th>الحالة</th></tr></thead>
-              <tbody>{list.map((b) => <tr key={b.code + b.tripId}><td className="code">{b.code}</td><td><b>{b.name}</b></td><td>{label(b.tripId)}</td><td>{longDate(b.date)}</td><td className="num">{b.seats.join('، ')}</td><td>{b.pay}</td><td><span className={`pill ${b.status === 'cancelled' ? 'bad' : 'ok'}`}>{b.status === 'cancelled' ? 'ملغي' : 'مؤكد'}</span></td></tr>)}</tbody>
-            </table>
-          </section>
+          list.length ? (
+            <section className="adm-card">
+              <table className="adm-table adm-click">
+                <thead><tr><th>الرمز</th><th>المسافر</th><th>الرحلة</th><th>اليوم</th><th>المقاعد</th><th>الدفع</th><th>الحالة</th></tr></thead>
+                <tbody>{list.map((b) => <tr key={key(b)} tabIndex={0} onClick={() => open('bookings', key(b))} onKeyDown={(e) => { if (e.key === 'Enter') open('bookings', key(b)); }}><td className="code">{b.code}</td><td><b>{b.name}</b></td><td>{label(b.tripId)}</td><td>{longDate(b.date)}</td><td className="num">{b.seats.join('، ')}</td><td>{b.pay}</td><td>{pill(b)}</td></tr>)}</tbody>
+              </table>
+            </section>
+          ) : null
         ) : list.map((b) => (
-          <div key={b.code + b.tripId} className="adm-item" style={{ cursor: 'default' }}>
-            <span className="grow"><b style={{ display: 'block' }}>{b.name}</b><span className="tiny muted">{label(b.tripId)} · مقاعد {b.seats.join('، ')} · {b.pay}</span></span>
-            <span className="code" style={{ letterSpacing: 1 }}>{b.code}</span>
-          </div>
+          <button key={key(b)} className="adm-item" onClick={() => open('bookings', key(b))}>
+            <span className="grow"><b style={{ display: 'block' }}>{b.name} <span className="code tiny" style={{ letterSpacing: 1, color: 'var(--slate)' }}>{b.code}</span></b><span className="tiny muted">{label(b.tripId)} · {longDate(b.date)} · مقاعد {b.seats.join('، ')}</span></span>
+            {pill(b)}
+          </button>
         ))}
+      </div>
+    </>
+  );
+}
+
+function BookingDetail({ b, wide, story, onBack }: { b: Booking; wide: boolean; story: ReturnType<ReturnType<typeof useBookingStory>>; onBack: () => void }) {
+  const { leg, who, status, startedAt, boarded } = story;
+  const [label, cls] = STATUS[status];
+  const now = Date.now();
+  const steps: [string, string, boolean][] = [
+    ['انحجز', b.createdAt ? `${longDate(b.date)}` : 'قبل الرحلة', true],
+    ['صعد الراكب', boarded ? `الكابتن مسح التذكرة ${fmt12(boarded)}` : status === 'arrived' || status === 'started' ? 'صعد بدون مسح التذكرة' : 'بعد ما صعد', !!boarded || status === 'arrived' || status === 'started'],
+    ['انطلقت الرحلة', leg ? clock(startedAt ?? leg.dep) : '—', status === 'started' || status === 'arrived'],
+    ['وصلت', leg ? clock(leg.arr) : '—', status === 'arrived'],
+  ];
+  const row = (k: string, v: ReactNode) => <div className="adm-kv"><span>{k}</span><b>{v}</b></div>;
+  return (
+    <>
+      <Head wide={wide} back title={`حجز ${b.code}`} sub={leg ? `${leg.from} ← ${leg.to} · ${longDate(b.date)}` : longDate(b.date)}
+        right={<div className="row gap8">{wide ? <button className="btn soft sm" style={{ width: 'auto', padding: '0 16px' }} onClick={onBack}>كل الحجوزات</button> : null}<span className={`pill ${cls}`} style={{ height: 32 }}>{label}</span></div>} />
+      <div className={wide ? 'adm-grid2' : 'pad stack gap12'} style={wide ? { alignItems: 'start' } : undefined}>
+        <div className="stack gap12">
+          <section className="adm-card stack gap10">
+            <h2 className="h3">شنو صار بالرحلة</h2>
+            {status === 'cancelled' ? (
+              <div className="row gap10" style={{ color: 'var(--alert)' }}><Icon name="x" size={20} /><b>انلغت {b.cancelledBy === 'captain' ? 'من الكابتن' : b.cancelledBy === 'me' ? 'من المسافر' : ''} — الفلوس ترجع لنفس طريقة الدفع</b></div>
+            ) : (
+              <ol className="adm-steps">
+                {steps.map(([t, sub, done]) => <li key={t} className={done ? 'done' : ''}><i>{done ? <Icon name="check" size={14} /> : null}</i><span><b>{t}</b><span className="tiny muted">{sub}</span></span></li>)}
+              </ol>
+            )}
+            {status === 'started' && leg ? <div className="tiny muted">باقي تقريباً <b className="num">{Math.max(1, Math.round((leg.arr - now) / 60000))}</b> دقيقة للوصول</div> : null}
+          </section>
+          {leg ? (
+            <section className="adm-card stack gap6">
+              <h2 className="h3">الطريق</h2>
+              {row('من', `${leg.from} · ${leg.fromGarage}`)}
+              {row('إلى', `${leg.to} · ${leg.toGarage}`)}
+              {row('الحركة', <span className="num">{clock(leg.dep)}</span>)}
+              {row('الوصول المتوقع', <span className="num">{clock(leg.arr)}</span>)}
+              {row('الشركة', leg.company)}
+            </section>
+          ) : null}
+        </div>
+        <div className="stack gap12">
+          {who ? (
+            <section className="adm-card stack gap6">
+              <h2 className="h3">السائق</h2>
+              <div className="row gap10" style={{ marginBottom: 4 }}>
+                <span className="adm-av light"><Icon name="user" size={18} /></span>
+                <span className="grow"><b style={{ display: 'block' }}>{who.name}</b>{who.office ? <span className="tiny muted">{who.office}</span> : <span className="tiny muted">كابتن مستقل</span>}</span>
+                {who.phone ? <a className="iconbtn" aria-label="اتصل بالسائق" href={`tel:0${who.phone.replace(/\D/g, '').replace(/^0/, '')}`}><Icon name="phone" size={18} /></a> : null}
+              </div>
+              {who.phone ? row('الرقم', <span className="num" dir="ltr">0{who.phone.replace(/^0/, '')}</span>) : null}
+              {row('المركبة', who.vehicle)}
+              {who.plate ? row('اللوحة', who.plate) : null}
+            </section>
+          ) : null}
+          <section className="adm-card stack gap6">
+            <h2 className="h3">المسافر والدفع</h2>
+            {row('الاسم', b.name)}
+            {b.phone ? row('الموبايل', <span className="num" dir="ltr">0{formatPhone(b.phone)}</span>) : null}
+            {row('المقاعد', <span className="num">{b.seats.join('، ')}</span>)}
+            {b.passengers?.length ? row('الركاب', b.passengers.map((x) => x.name).join('، ')) : null}
+            {row('الدفع', b.pay)}
+            {row('المبلغ', <span className="num">{money(b.total || (leg ? leg.price * b.seats.length : 0))} د.ع</span>)}
+            {b.rating ? row('تقييم المسافر', <span>★ <span className="num">{b.rating.stars}</span>{b.rating.comment ? ` · ${b.rating.comment}` : ''}</span>) : null}
+          </section>
+        </div>
       </div>
     </>
   );
@@ -673,7 +830,85 @@ function More() {
             <Icon name="forward" size={18} />
           </button>
         ))}
+        <button className="list-item" onClick={() => go('admin', { section: 'settings' })}>
+          <span className="ic"><Icon name="gear" size={22} /></span>
+          <span className="grow bold">الإعدادات</span>
+          <Icon name="forward" size={18} />
+        </button>
         <AdminLogout />
+      </div>
+    </>
+  );
+}
+
+/* ---------------- settings ---------------- */
+
+function AdminSettings({ wide }: { wide: boolean }) {
+  const { lang, notifOn, dark, set, showToast } = useStore();
+  const [alerts, setAlerts] = useState({ reqs: true, support: true, payouts: true, pkgs: true });
+  const test = async () => {
+    const r = await phoneNotify('إدارة بدربي', 'طلب انضمام جديد ينتظر موافقتك (إشعار تجريبي)');
+    showToast(r === 'ok' ? 'انبعث الإشعار — شوف أعلى الشاشة' : r === 'denied' ? 'لازم تسمح بالإشعارات من إعدادات الجهاز' : 'هذا الجهاز ما يدعم الإشعارات');
+  };
+  const Toggle = ({ on, onClick, label }: { on: boolean; onClick: () => void; label: string }) => (
+    <button role="switch" aria-checked={on} aria-label={label} className={`switch ${on ? 'on' : ''}`} onClick={onClick}><i /></button>
+  );
+  const alertRows: [keyof typeof alerts, string, string][] = [
+    ['reqs', 'طلبات الانضمام', 'كابتن أو مكتب سجّل وينتظر'],
+    ['support', 'رسائل الدعم', 'مسافر أو كابتن كتب للدعم'],
+    ['payouts', 'طلبات السحب', 'كابتن طلب يسحب رصيده'],
+    ['pkgs', 'سفرات المكاتب', 'سفرة جديدة تنتظر مراجعة'],
+  ];
+  return (
+    <>
+      <Head wide={wide} title="الإعدادات" sub="إعدادات حساب الإدارة على هذا الجهاز" />
+      <div className={wide ? 'adm-grid2' : 'pad stack gap12'} style={wide ? { alignItems: 'start' } : undefined}>
+        <div className="stack gap12">
+          <section className="adm-card row gap12">
+            <span className="adm-av" style={{ width: 52, height: 52, fontSize: 20 }}>أ</span>
+            <span className="grow"><b style={{ display: 'block', fontSize: 17 }}>أبو الحسن</b><span className="small muted">مدير النظام · <span className="num" dir="ltr">0711 111 1111</span></span></span>
+          </section>
+          <section className="adm-card stack gap10">
+            <h2 className="h3">اللغة</h2>
+            <div className="seg">
+              {([['ar', 'عربي'], ['en', 'English'], ['ku', 'کوردی']] as const).map(([k, l]) => (
+                <button key={k} className={lang === k ? 'on' : ''} onClick={() => set({ lang: k })}>{l}</button>
+              ))}
+            </div>
+          </section>
+          <section className="adm-card" style={{ padding: '4px 16px' }}>
+            <div className="set-row">
+              <span className="ic"><Icon name="moon" size={20} /></span>
+              <span className="grow"><b>الوضع الليلي</b><span>ألوان غامقة تريّح العين بالليل</span></span>
+              <Toggle label="الوضع الليلي" on={dark} onClick={() => set({ dark: !dark })} />
+            </div>
+            <div className="set-row" style={{ borderBottom: 0 }}>
+              <span className="ic"><Icon name="bell" size={20} /></span>
+              <span className="grow"><b>الإشعارات</b><span>كل إشعارات الإدارة على هذا الجهاز</span></span>
+              <Toggle label="الإشعارات" on={notifOn} onClick={() => set({ notifOn: !notifOn })} />
+            </div>
+          </section>
+        </div>
+        <div className="stack gap12">
+          <section className="adm-card" style={{ padding: '4px 16px', opacity: notifOn ? 1 : 0.5 }}>
+            <div className="small bold" style={{ padding: '12px 0 4px' }}>شنو يوصلك إشعار عنه</div>
+            {alertRows.map(([k, t, sub], i) => (
+              <div key={k} className="set-row" style={i === alertRows.length - 1 ? { borderBottom: 0 } : undefined}>
+                <span className="grow"><b>{t}</b><span>{sub}</span></span>
+                <Toggle label={t} on={notifOn && alerts[k]} onClick={() => notifOn && setAlerts({ ...alerts, [k]: !alerts[k] })} />
+              </div>
+            ))}
+          </section>
+          <section className="adm-card" style={{ padding: '4px 16px' }}>
+            <button className="set-row" disabled={!notifOn} style={{ borderBottom: 0, opacity: notifOn ? 1 : 0.45, width: '100%' }} onClick={() => void test()}>
+              <span className="ic"><Icon name="send" size={20} /></span>
+              <span className="grow"><b>جرّب إشعار على الجهاز</b><span>يوصلك إشعار طلب تجريبي</span></span>
+              <Icon name="forward" size={18} />
+            </button>
+          </section>
+          {!wide ? <AdminLogout /> : null}
+          <div className="tiny muted center">لوحة إدارة بدربي · نسخة تجريبية</div>
+        </div>
       </div>
     </>
   );

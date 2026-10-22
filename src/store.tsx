@@ -3,7 +3,7 @@ import { agencyManifest, seedAgencyTrips, span, SEED_DRIVERS, SEED_VEHICLES, AGE
 import { phoneNotify } from './phoneNotify';
 import type { AdminCoupon } from './coupons';
 import { seedPackages, type Package, type PkgBooking } from './packages';
-import { DEMO_PASSENGERS, DRIVER_TRIP_ID, GARAGES, TRIPS, fmt12, todayIso, tripById, type Garage, type VehicleKind } from './data';
+import { DEMO_PASSENGERS, DRIVER_TRIP_ID, GARAGES, HOTELS, TRIPS, fmt12, todayIso, tripById, type Garage, type Hotel, type VehicleKind } from './data';
 
 export type Role = 'passenger' | 'driver' | 'agency' | 'admin';
 
@@ -139,6 +139,7 @@ interface Persisted {
   lang: 'ar' | 'en' | 'ku';
   adminCoupons: AdminCoupon[];
   extraGarages: Garage[];
+  extraHotels: Hotel[];
   notifOn: boolean;
   dark: boolean;
   captainNotifs: Notif[];
@@ -303,6 +304,7 @@ const initial: Persisted = {
     { code: 'BASRA5', kind: 'amount', value: 5000, max: 0, audience: 'all', minTrips: 0, phones: [], expires: '', active: true, createdAt: 0 },
   ],
   extraGarages: [],
+  extraHotels: [],
   notifOn: true,
   dark: false,
   payouts: [
@@ -334,6 +336,7 @@ function load(): Persisted {
       }
       // Garages the admin added live with the built-in ones.
       for (const g of merged.extraGarages) if (!GARAGES.some((x) => x.id === g.id)) GARAGES.push(g);
+      for (const h of merged.extraHotels ?? []) if (!HOTELS.some((x) => x.id === h.id)) HOTELS.push(h);
       return merged;
     }
   } catch {

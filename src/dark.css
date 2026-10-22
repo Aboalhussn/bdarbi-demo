@@ -333,3 +333,16 @@
 :where(html.dark) .coupon-card { background: #17142B; border: 1.5px dashed #3A3566; }
 :where(html.dark) .pin-map { border: 1.5px solid #2C2850; background: #201C3B; }
 :where(html.dark) .map-pin { background: #7B6CF6; border: 3px solid #17142B; }
+:where(html.dark) .hotel-photo { border: 1.5px dashed #3A3566; background: #0F0D1E; color: #A29EC0; }
+:where(html.dark) .adm-search { background: #17142B; border: 1.5px solid #2C2850; color: #A29EC0; }
+:where(html.dark) .adm-search:focus-within { border-color: #A79BFF; }
+:where(html.dark) .adm-search input { color: #EEEDF7; }
+:where(html.dark) .adm-search button { color: #A29EC0; }
+:where(html.dark) .adm-click tbody tr:hover { background: #0F0D1E; }
+:where(html.dark) .adm-click tbody tr:focus-visible { background: #0F0D1E; }
+:where(html.dark) .adm-kv { border-bottom: 1px solid #2C2850; }
+:where(html.dark) .adm-kv span { color: #A29EC0; }
+:where(html.dark) .adm-steps li::before { background: #2C2850; }
+:where(html.dark) .adm-steps li.done::before { background: #2FA36B; }
+:where(html.dark) .adm-steps i { border: 2px solid #3A3566; background: #17142B; }
+:where(html.dark) .adm-steps li.done i { background: #2FA36B; border-color: #5AD49F; }

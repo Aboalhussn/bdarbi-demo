@@ -2,6 +2,7 @@ import { useEffect, useState, type ComponentType } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { App as CapApp } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
+import { ScreenOrientation } from '@capacitor/screen-orientation';
 import { useStore } from './store';
 import { Login, OnboardLocation, OnboardNotify, Otp, PartnerLogin, Register, Splash } from './screens/Welcome';
 import { AdminApp } from './screens/Admin';
@@ -100,6 +101,15 @@ export default function App() {
     document.documentElement.lang = lang === 'en' ? 'en' : lang === 'ku' ? 'ckb' : 'ar';
   }, [dark, lang]);
   const Screen = SCREENS[route.name] ?? Home;
+
+  // Passenger, captain and office screens stay upright; only the admin app turns
+  // with the phone (and a tablet in landscape gets the sidebar layout).
+  const isAdmin = role === 'admin' && route.name === 'admin';
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const run = isAdmin ? ScreenOrientation.unlock() : ScreenOrientation.lock({ orientation: 'portrait' });
+    void run.catch(() => undefined);
+  }, [isAdmin]);
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;

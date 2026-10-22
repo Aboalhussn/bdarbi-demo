@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { CITIES, GARAGES, todayIso, type Garage } from '../data';
+import { CITIES, GARAGES, HOTELS, money, todayIso, type Garage, type Hotel } from '../data';
 import { audienceLabel, couponLabel, type AdminCoupon } from '../coupons';
 import { Icon } from '../icons';
 import { CityPicker, DateField, TimeField, addDays, prettyDate } from '../pickers';
 import { useStore } from '../store';
 import { Sheet } from '../ui';
 import { formatPhone } from './Welcome';
+import { shrinkImage } from './Account';
 
 const CITY_CENTER: Record<string, [number, number]> = {
   'بغداد': [33.3152, 44.3661], 'البصرة': [30.5085, 47.7804], 'أربيل': [36.1901, 44.0091], 'كربلاء المقدسة': [32.616, 44.0249], 'النجف الأشرف': [31.9996, 44.3148], 'السليمانية': [35.5613, 45.4373],
@@ -188,6 +189,149 @@ export function AdminGarages({ wide, Head }: { wide: boolean; Head: (p: { wide: 
           </div>
         ))}
       </div>
+    </>
+  );
+}
+
+/* ---------------- hotels ---------------- */
+
+const AMENITIES = ['واي فاي', 'فطور', 'تكييف', 'موقف', 'مصعد', 'مطعم', 'مسبح', 'خدمة غرف', 'قريب من الحرم', 'غرف عائلية', 'نقل من الكراج', 'استقبال 24 ساعة'];
+const TINTS = ['#DCD8EE', '#FDF1D6', '#E6F4EC', '#E8F1F8', '#F7D9DE'];
+type RoomDraft = { name: string; note: string; price: string };
+
+export function AdminHotels({ wide, Head }: { wide: boolean; Head: (p: { wide: boolean; title: string; sub?: string; right?: ReactNode }) => ReactElement }) {
+  const { extraHotels, set, showToast } = useStore();
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState('');
+  const [city, setCity] = useState(CITIES[3]);
+  const [near, setNear] = useState('');
+  const [address, setAddress] = useState('');
+  const [phone, setPhone] = useState('');
+  const [whatsapp, setWhatsapp] = useState('');
+  const [stars, setStars] = useState(4);
+  const [checkIn, setCheckIn] = useState('14:00');
+  const [checkOut, setCheckOut] = useState('12:00');
+  const [amen, setAmen] = useState<string[]>(['واي فاي', 'تكييف', 'فطور']);
+  const [rooms, setRooms] = useState<RoomDraft[]>([{ name: 'غرفة مزدوجة', note: 'سريرين · فطور مشمول', price: '50000' }]);
+  const [about, setAbout] = useState('');
+  const [policies, setPolicies] = useState('ممنوع التدخين داخل الغرف\nالإلغاء مجاني قبل 24 ساعة');
+  const [photo, setPhoto] = useState('');
+  const [err, setErr] = useState('');
+  const file = useRef<HTMLInputElement>(null);
+
+  const reset = () => {
+    setName(''); setNear(''); setAddress(''); setPhone(''); setWhatsapp(''); setAbout(''); setPhoto(''); setErr('');
+    setRooms([{ name: 'غرفة مزدوجة', note: 'سريرين · فطور مشمول', price: '50000' }]);
+  };
+  const digits = (v: string) => v.replace(/\D/g, '');
+  const phoneOk = (v: string) => /^0?7\d{9}$/.test(digits(v)) || /^0\d{8,10}$/.test(digits(v));
+  const save = () => {
+    const okRooms = rooms.filter((r) => r.name.trim() && Number(r.price) > 0);
+    if (name.trim().length < 4) return setErr('اكتب اسم الفندق');
+    if (near.trim().length < 3) return setErr('اكتب وين قريب (مثلاً: 300 م عن الحرم)');
+    if (!phoneOk(phone)) return setErr('اكتب رقم الفندق صحيح، الزبون يتصل عليه للحجز');
+    if (!okRooms.length) return setErr('ضيف غرفة وحدة على الأقل ويا سعرها');
+    const h: Hotel = {
+      id: 'ah' + Date.now(),
+      name: name.trim().startsWith('فندق') ? name.trim() : `فندق ${name.trim()}`,
+      city, near: near.trim(), rating: stars.toFixed(1),
+      from: Math.min(...okRooms.map((r) => Number(r.price))),
+      tint: TINTS[(extraHotels.length + 3) % TINTS.length],
+      amenities: amen.length ? amen : ['تكييف'],
+      rooms: okRooms.map((r) => ({ name: r.name.trim(), note: r.note.trim(), price: Number(r.price) })),
+      phone: formatPhone(digits(phone).replace(/^0/, '')) ? `0${formatPhone(digits(phone).replace(/^0/, ''))}` : phone.trim(),
+      whatsapp: digits(whatsapp) ? whatsapp.trim() : undefined,
+      address: address.trim() || undefined,
+      checkIn, checkOut,
+      about: about.trim() || undefined,
+      policies: policies.split('\n').map((x) => x.trim()).filter(Boolean),
+      photo: photo || undefined,
+    };
+    HOTELS.push(h);
+    set({ extraHotels: [...extraHotels, h] });
+    showToast('انضاف الفندق ✓ يطلع للمسافرين بصفحة الفنادق');
+    setOpen(false);
+    reset();
+  };
+  const pick = async (f?: File) => {
+    if (!f) return;
+    try { setPhoto(await shrinkImage(f, 720, 480)); } catch { showToast('ما گدرنا نقرأ الصورة'); }
+  };
+  const setRoom = (i: number, k: keyof RoomDraft, v: string) => setRooms(rooms.map((r, j) => (j === i ? { ...r, [k]: k === 'price' ? digits(v) : v } : r)));
+
+  return (
+    <>
+      <Head wide={wide} title="الفنادق" sub={`${HOTELS.length} فندق · تطلع للمسافرين بصفحة الفنادق`} right={<button className="btn sm" style={{ width: 'auto', padding: '0 16px' }} onClick={() => setOpen(true)}><Icon name="plus" size={18} /> فندق جديد</button>} />
+      <div className={wide ? 'adm-cards3' : 'pad stack gap8'}>
+        {HOTELS.map((h) => (
+          <div key={h.id} className="adm-item" style={{ cursor: 'default', alignItems: 'flex-start' }}>
+            <span className="adm-av light" style={h.photo ? { padding: 0, overflow: 'hidden' } : undefined}>{h.photo ? <img src={h.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Icon name="hotel" size={18} />}</span>
+            <span className="grow">
+              <b style={{ display: 'block' }}>{h.name}</b>
+              <span className="tiny muted" style={{ display: 'block' }}>{h.city} · {h.near}</span>
+              <span className="tiny muted">{h.rooms.length} غرف · من <b className="num">{money(h.from)}</b> د.ع{h.phone ? <> · <span className="num" dir="ltr">{h.phone}</span></> : null}</span>
+            </span>
+            <span className="pill info">★ <span className="num">{h.rating}</span></span>
+          </div>
+        ))}
+      </div>
+
+      <Sheet open={open} onClose={() => setOpen(false)} label="فندق جديد">
+        <div className="stack gap10">
+          <h2 className="h3">فندق جديد</h2>
+          <span className="tiny muted" style={{ marginTop: -6 }}>كل اللي تكتبه يطلع للمسافر بصفحة الفندق، والحجز يصير مباشرة ويا الفندق بالاتصال أو الواتساب.</span>
+
+          <button type="button" className="hotel-photo" onClick={() => file.current?.click()} aria-label="صورة الفندق">
+            {photo ? <img src={photo} alt="" /> : <span className="stack center gap6"><Icon name="camera" size={26} /><span className="small">صورة الفندق (اختياري)</span></span>}
+          </button>
+          <input ref={file} type="file" accept="image/*" hidden onChange={(e) => { void pick(e.target.files?.[0]); e.target.value = ''; }} />
+
+          <label className="field"><span className="label">اسم الفندق</span><input className="input" placeholder="مثلاً: فندق الكوثر" value={name} onChange={(e) => { setName(e.target.value.slice(0, 40)); setErr(''); }} /></label>
+          <div className="field"><span className="label">المحافظة</span><CityPicker label="المحافظة" value={city} onChange={setCity} variant="field" /></div>
+          <label className="field"><span className="label">قريب من</span><input className="input" placeholder="مثلاً: 300 م عن الحرم" value={near} onChange={(e) => { setNear(e.target.value.slice(0, 40)); setErr(''); }} /></label>
+          <label className="field"><span className="label">العنوان (اختياري)</span><input className="input" placeholder="الشارع، أقرب نقطة دالة" value={address} onChange={(e) => setAddress(e.target.value.slice(0, 80))} /></label>
+          <div className="row gap8">
+            <label className="grow field"><span className="label">رقم الحجز</span><input className="input num" inputMode="tel" dir="ltr" style={{ textAlign: 'left' }} placeholder="0770 000 0000" value={phone} onChange={(e) => { setPhone(e.target.value.slice(0, 16)); setErr(''); }} /></label>
+            <label className="grow field"><span className="label">واتساب (اختياري)</span><input className="input num" inputMode="tel" dir="ltr" style={{ textAlign: 'left' }} placeholder="نفس الرقم" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value.slice(0, 16))} /></label>
+          </div>
+          <div className="field">
+            <span className="label">التصنيف</span>
+            <div className="seg">{[3, 4, 5].map((n) => <button key={n} className={stars === n ? 'on' : ''} onClick={() => setStars(n)}>{'★'.repeat(n)}</button>)}</div>
+          </div>
+          <div className="row gap8">
+            <div className="grow"><TimeField label="الدخول من" value={checkIn} onChange={setCheckIn} /></div>
+            <div className="grow"><TimeField label="الخروج قبل" value={checkOut} onChange={setCheckOut} /></div>
+          </div>
+
+          <span className="label">الخدمات</span>
+          <div className="row gap6" style={{ flexWrap: 'wrap' }}>
+            {AMENITIES.map((x) => { const on = amen.includes(x); return <button key={x} className={`chip ag-chip ${on ? 'on' : ''}`} style={{ height: 36 }} onClick={() => setAmen(on ? amen.filter((y) => y !== x) : [...amen, x])}>{x}</button>; })}
+          </div>
+
+          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+            <span className="label">الغرف والأسعار (لليلة)</span>
+            <button className="link small bold" onClick={() => setRooms([...rooms, { name: '', note: '', price: '' }])}>+ غرفة</button>
+          </div>
+          {rooms.map((r, i) => (
+            <div key={i} className="card flat stack gap8" style={{ padding: 12 }}>
+              <div className="row gap8">
+                <input className="input grow" style={{ height: 46 }} placeholder="نوع الغرفة" value={r.name} onChange={(e) => setRoom(i, 'name', e.target.value.slice(0, 30))} />
+                <input className="input num" style={{ height: 46, width: 120, textAlign: 'left' }} inputMode="numeric" dir="ltr" placeholder="السعر" value={r.price} onChange={(e) => setRoom(i, 'price', e.target.value)} />
+              </div>
+              <div className="row gap8">
+                <input className="input grow" style={{ height: 46 }} placeholder="تفاصيل: عدد الأسرّة، فطور…" value={r.note} onChange={(e) => setRoom(i, 'note', e.target.value.slice(0, 50))} />
+                {rooms.length > 1 ? <button className="iconbtn" aria-label="احذف الغرفة" style={{ color: 'var(--alert)' }} onClick={() => setRooms(rooms.filter((_, j) => j !== i))}><Icon name="trash" size={18} /></button> : null}
+              </div>
+            </div>
+          ))}
+
+          <label className="field"><span className="label">نبذة عن الفندق (اختياري)</span><textarea className="input" style={{ height: 90, padding: 12, resize: 'none' }} placeholder="شنو يميّز الفندق، قريب من شنو…" value={about} onChange={(e) => setAbout(e.target.value.slice(0, 300))} /></label>
+          <label className="field"><span className="label">ملاحظات للزبون (كل سطر ملاحظة)</span><textarea className="input" style={{ height: 80, padding: 12, resize: 'none' }} value={policies} onChange={(e) => setPolicies(e.target.value.slice(0, 300))} /></label>
+
+          {err ? <div className="err">{err}</div> : null}
+          <button className="btn" onClick={save}>انشر الفندق</button>
+        </div>
+      </Sheet>
     </>
   );
 }

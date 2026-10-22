@@ -1,9 +1,16 @@
 import { useState } from 'react';
-import { HOTELS, money, todayIso } from '../data';
+import { HOTELS, fmt12, money, todayIso } from '../data';
 import { CityPicker, DateField, RangeField, addDays, nightsBetween, prettyDate, shortDate } from '../pickers';
 import { Icon } from '../icons';
 import { useStore } from '../store';
 import { Sheet, Stars, TopBar, openExternal } from '../ui';
+
+/** 0770 123 4567 → 9647701234567 for wa.me links; empty when there is no number. */
+function waNumber(p?: string) {
+  const d = (p ?? '').replace(/\D/g, '');
+  if (!d) return '';
+  return d.startsWith('964') ? d : `964${d.replace(/^0/, '')}`;
+}
 
 export function Hotels() {
   const { go } = useStore();
@@ -22,7 +29,7 @@ export function Hotels() {
         {list.map((h) => (
           <button key={h.id} className="card" style={{ padding: 0, overflow: 'hidden', textAlign: 'right' }} onClick={() => go('hotel', { id: h.id })}>
             <div style={{ height: 150, background: h.tint, position: 'relative' }}>
-              <img src="./img/hotel.png" alt="" style={{ position: 'absolute', left: '50%', bottom: 0, transform: 'translateX(-50%)', height: 140, width: 'auto' }} />
+              {h.photo ? <img src={h.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <img src="./img/hotel.png" alt="" style={{ position: 'absolute', left: '50%', bottom: 0, transform: 'translateX(-50%)', height: 140, width: 'auto' }} />}
               <span className="pill" style={{ position: 'absolute', top: 12, right: 12, background: 'var(--hero)', color: '#fff' }}>★ <span className="num">{h.rating}</span></span>
             </div>
             <div style={{ padding: '12px 16px 14px' }}>
@@ -42,7 +49,7 @@ export function Hotels() {
 export function HotelDetails() {
   const { route, back } = useStore();
   const h = HOTELS.find((x) => x.id === route.params?.id) ?? HOTELS[0];
-  const [room, setRoom] = useState(1);
+  const [room, setRoom] = useState(Math.min(1, h.rooms.length - 1));
   const [fav, setFav] = useState(false);
   const [checkIn, setCheckIn] = useState(addDays(todayIso(), 1));
   const [checkOut, setCheckOut] = useState(addDays(todayIso(), 3));
@@ -56,7 +63,7 @@ export function HotelDetails() {
     <div className="screen">
       <div className="scroll" style={{ paddingBottom: 20 }}>
         <div style={{ height: 300, background: h.tint, position: 'relative', paddingTop: 'var(--safe-top)' }}>
-          <img src="./img/hotel.png" alt={h.name} style={{ position: 'absolute', left: '50%', bottom: 26, transform: 'translateX(-50%)', width: 240, height: 'auto' }} />
+          {h.photo ? <img src={h.photo} alt={h.name} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} /> : <img src="./img/hotel.png" alt={h.name} style={{ position: 'absolute', left: '50%', bottom: 26, transform: 'translateX(-50%)', width: 240, height: 'auto' }} />}
           <button className="iconbtn" aria-label="رجوع" onClick={back} style={{ position: 'absolute', top: 'calc(16px + var(--safe-top))', right: 20, background: 'var(--card)' }}>
             <Icon name="back" size={20} />
           </button>
@@ -72,11 +79,24 @@ export function HotelDetails() {
             </div>
             <span className="pill" style={{ background: 'var(--hero)', color: '#fff', height: 32 }}><Stars rate={h.rating} /></span>
           </div>
-          <div className="row gap8" style={{ marginTop: 16 }}>
+          <div className="hotel-amen" style={{ marginTop: 16 }}>
             {h.amenities.map((a) => (
-              <div key={a} className="grow center small muted" style={{ height: 56, borderRadius: 16, background: 'var(--surface)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{a}</div>
+              <div key={a} className="center small muted" style={{ height: 50, borderRadius: 16, background: 'var(--surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 8px' }}>{a}</div>
             ))}
           </div>
+          {h.about ? <p className="small" style={{ margin: '16px 0 0', lineHeight: 1.9, color: 'var(--ink2)' }}>{h.about}</p> : null}
+          {h.address || h.checkIn || h.phone ? (
+            <div className="card flat stack gap8" style={{ marginTop: 14, padding: 14 }}>
+              {h.address ? <div className="row gap8 small"><Icon name="pin" size={16} /><span className="grow">{h.address}</span></div> : null}
+              {h.checkIn ? <div className="row gap8 small"><Icon name="clock" size={16} /><span className="grow">الدخول من <b className="num">{fmt12(h.checkIn)}</b> · الخروج قبل <b className="num">{fmt12(h.checkOut ?? '12:00')}</b></span></div> : null}
+              {h.phone ? <div className="row gap8 small"><Icon name="phone" size={16} /><span className="grow num" dir="ltr" style={{ textAlign: 'right' }}>{h.phone}</span></div> : null}
+            </div>
+          ) : null}
+          {h.policies?.length ? (
+            <div className="stack gap6" style={{ marginTop: 12 }}>
+              {h.policies.map((x) => <div key={x} className="row gap8 small muted"><Icon name="check" size={16} />{x}</div>)}
+            </div>
+          ) : null}
           <h2 className="h3" style={{ margin: '20px 0 10px' }}>اختار الغرفة</h2>
           <div className="stack gap8" role="radiogroup">
             {h.rooms.map((r, i) => (
@@ -104,14 +124,14 @@ export function HotelDetails() {
         <div className="stack gap12">
           <h2 className="h2">احجز مع الفندق مباشرة</h2>
           <p className="muted" style={{ margin: 0 }}>{h.rooms[room].name} · {nights} ليالي · {shortDate(checkIn)} ← {shortDate(checkOut)}</p>
-          <button className="btn green" onClick={() => openExternal(`https://wa.me/?text=${encodeURIComponent(msg)}`)}>
+          <button className="btn green" onClick={() => openExternal(`https://wa.me/${waNumber(h.whatsapp || h.phone)}?text=${encodeURIComponent(msg)}`)}>
             <Icon name="whatsapp" size={22} /> واتساب
           </button>
-          <button className="btn" onClick={() => openExternal('tel:')}>
+          <button className="btn" onClick={() => openExternal(`tel:${(h.phone ?? '').replace(/\s/g, '')}`)}>
             <Icon name="phone" size={20} /> اتصال
           </button>
           <div className="small muted center">الحجز والدفع يتم مباشرة ويا الفندق</div>
-          <div className="demo-note" style={{ margin: 0 }}>نسخة تجريبية: ما مربوط رقم فندق حقيقي — الواتساب يفتح وتختار انت لمن ترسل الرسالة الجاهزة.</div>
+          {!h.phone ? <div className="demo-note" style={{ margin: 0 }}>نسخة تجريبية: ما مربوط رقم فندق حقيقي — الواتساب يفتح وتختار انت لمن ترسل الرسالة الجاهزة.</div> : null}
         </div>
       </Sheet>
     </div>
