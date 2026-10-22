@@ -114,6 +114,7 @@ interface Persisted {
   withdrawals: Withdrawal[];
   support: { passenger: ChatMsg[]; captain: ChatMsg[] };
   captainNotifs: Notif[];
+  captainCard: SavedCard | null; // where the captain's earnings are paid out
   goalsClaimed: string[]; // ids of captain challenges whose reward was collected
 }
 
@@ -193,6 +194,7 @@ const initial: Persisted = {
     { id: 'cn0', at: 0, icon: 'star', title: 'تقييمك ★ 4.9', body: 'تقييمك عالي، فرحلاتك تطلع بأول نتائج البحث للمسافرين. كمّل هيج!', read: true, tone: 'info' },
   ],
   goalsClaimed: [],
+  captainCard: null,
 };
 
 function load(): Persisted {

@@ -6,9 +6,10 @@ import { useStore } from '../store';
 import { claimedRewards, useGoals } from '../goals';
 import { Sheet, TabBar, TopBar } from '../ui';
 import { AboutDemo } from './Booking';
+import { CardSheet, CardVisual } from './Account';
 import { captainRating } from './Driver';
 
-const COMMISSION = 0.1; // بدربي keeps 10% of every seat
+const COMMISSION = 0.05; // بدربي keeps 5% of electronic payments; cash has no commission
 
 /** The captain's money: earlier trips (demo) + today's trip, less commission and withdrawals. */
 function useEarnings() {
@@ -17,8 +18,7 @@ function useEarnings() {
   const today = manifest().filter((b) => b.status === 'confirmed');
   const online = today.filter((b) => !b.pay.startsWith('نقد')).reduce((n, b) => n + b.seats.length * t.price, 0);
   const cash = today.filter((b) => b.pay.startsWith('نقد')).reduce((n, b) => n + b.seats.length * t.price, 0);
-  const gross = online + cash;
-  const commission = Math.round(gross * COMMISSION);
+  const commission = Math.round(online * COMMISSION);
   const EARLIER = 245000;
   const out = withdrawals.reduce((n, w) => n + w.amount, 0);
   const rewards = claimedRewards(goalsClaimed);
@@ -26,9 +26,9 @@ function useEarnings() {
   const ops = [
     ...rewards.map((r, i) => ({ id: 'rw-' + r.id, title: `مكافأة تحدي: ${r.title}`, sub: 'من الإنجازات 🏆', amount: r.amount, at: Date.now() + i })),
     ...withdrawals.map((w) => ({ id: w.id, title: `سحب إلى ${w.method}`, sub: w.status === 'pending' ? 'قيد التحويل' : 'انحوّل', amount: -w.amount, at: w.at })),
-    ...(gross ? [
+    ...(online ? [
       { id: 'today-online', title: `رحلة ${t.from} ← ${t.to} · دفع إلكتروني`, sub: trip.status === 'arrived' ? 'وصلت ✓' : 'اليوم', amount: online, at: Date.now() - 1 },
-      { id: 'today-comm', title: 'عمولة بدربي 10%', sub: `على ${money(gross)} د.ع (نقداً + إلكتروني)`, amount: -commission, at: Date.now() - 2 },
+      { id: 'today-comm', title: 'عمولة بدربي 5%', sub: `على الدفع الإلكتروني ${money(online)} د.ع`, amount: -commission, at: Date.now() - 2 },
     ] : []),
     { id: 's1', title: 'رحلة بغداد ← كربلاء', sub: 'الاثنين · دفع إلكتروني', amount: 120000, at: 3 },
     { id: 's2', title: 'رحلة بغداد ← النجف', sub: 'السبت · دفع إلكتروني', amount: 95000, at: 2 },
@@ -38,44 +38,56 @@ function useEarnings() {
 }
 
 export function CaptainWallet() {
-  const { withdrawals, set, showToast } = useStore();
+  const { withdrawals, set, showToast, captainCard: card } = useStore();
   const e = useEarnings();
   const [open, setOpen] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [remove, setRemove] = useState(false);
   const [amount, setAmount] = useState('');
-  const [method, setMethod] = useState('زين كاش');
-  const [acc, setAcc] = useState('');
   const [err, setErr] = useState('');
 
   const withdraw = () => {
     const a = Number(amount.replace(/\D/g, ''));
     if (!a || a < 10000) return setErr('أقل مبلغ للسحب 10,000 د.ع');
     if (a > e.balance) return setErr('المبلغ أكثر من رصيدك');
-    if (acc.replace(/\D/g, '').length < 6) return setErr(method === 'زين كاش' ? 'اكتب رقم محفظة زين كاش' : 'اكتب رقم البطاقة أو الحساب');
-    set({ withdrawals: [{ id: 'w' + Date.now(), amount: a, method, at: Date.now(), status: 'pending' }, ...withdrawals] });
-    showToast('انرسل طلب السحب — يوصلك خلال 24 ساعة');
+    set({ withdrawals: [{ id: 'w' + Date.now(), amount: a, method: `بطاقتك ${card!.first4} ••••`, at: Date.now(), status: 'pending' }, ...withdrawals] });
+    showToast('انرسل طلب السحب — يوصل لبطاقتك خلال 24 ساعة');
     setOpen(false);
     setAmount('');
     setErr('');
   };
 
   return (
-    <div className="screen gray">
+    <div className="screen">
       <TopBar title="المحفظة والأرباح" />
-      <div className="scroll pad stack gap12" style={{ paddingBottom: 24 }}>
-        <div className="earn-card">
-          <div className="small" style={{ opacity: 0.8 }}>رصيدك القابل للسحب</div>
-          <div className="num" style={{ fontSize: 36, fontWeight: 800, lineHeight: 1.3 }}>{money(e.balance)} <span style={{ fontSize: 16 }}>د.ع</span></div>
-          <button className="btn light sm" style={{ marginTop: 10 }} onClick={() => { setOpen(true); setAmount(String(Math.max(0, e.balance))); }}><Icon name="arrowUp" size={18} /> اسحب الرصيد</button>
-        </div>
+      <div className="scroll pad stack gap14" style={{ paddingBottom: 30 }}>
+        {card ? (
+          <>
+            <CardVisual {...card} balance={e.balance} />
+            <button className="btn" onClick={() => { setOpen(true); setAmount(String(Math.max(0, e.balance))); setErr(''); }}><Icon name="arrowUp" size={20} /> اسحب الرصيد لبطاقتك</button>
+            <div className="row gap10">
+              <button className="btn soft sm grow" onClick={() => setAdding(true)}><Icon name="edit" size={18} /> بدّل البطاقة</button>
+              <button className="btn soft sm grow" style={{ color: 'var(--alert)' }} onClick={() => setRemove(true)}><Icon name="x" size={18} /> احذف</button>
+            </div>
+          </>
+        ) : (
+          <button className="add-card" onClick={() => setAdding(true)}>
+            <span className="df-ic" style={{ width: 52, height: 52, borderRadius: 16 }}><Icon name="plus" size={26} /></span>
+            <b style={{ fontSize: 17 }}>ضيف بطاقتك</b>
+            <span className="small muted center">أرباحك تنسحب على هذي البطاقة — ماستر كارد، فيزا أو كي كارد</span>
+          </button>
+        )}
+
         <div className="row gap10">
-          {[[money(e.online), 'إلكتروني اليوم'], [money(e.cash), 'نقداً بيدك'], [money(e.commission), 'عمولة 10%']].map(([v, l]) => (
+          {[[money(e.online), 'إلكتروني اليوم'], [money(e.cash), 'نقداً بيدك'], [money(e.commission), 'عمولة 5%']].map(([v, l]) => (
             <div key={l} className="card grow center" style={{ padding: '12px 6px' }}>
               <div className="num bold" style={{ fontSize: 16, color: 'var(--navy)' }}>{v}</div>
               <div className="tiny muted">{l}</div>
             </div>
           ))}
         </div>
-        <div className="tiny muted" style={{ lineHeight: 1.7 }}>الدفع الإلكتروني ينضاف لرصيدك. النقد تستلمه انت من الركاب، وعمولته تنخصم من رصيدك.</div>
+        <div className="tiny muted" style={{ lineHeight: 1.7 }}>الدفع الإلكتروني ينضاف لرصيدك بعد عمولة بدربي 5%. النقد تستلمه انت من الركاب كامل وبدون عمولة.</div>
+
         <h2 className="h3">العمليات</h2>
         <div className="card" style={{ padding: '4px 14px' }}>
           {e.ops.map((o) => (
@@ -90,6 +102,9 @@ export function CaptainWallet() {
           ))}
         </div>
       </div>
+
+      <CardSheet open={adding} onClose={() => setAdding(false)} replacing={!!card} note="هذي البطاقة تنسحب عليها أرباحك." onSave={(c) => { set({ captainCard: c }); setAdding(false); showToast('انضافت البطاقة ✓'); }} />
+
       <Sheet open={open} onClose={() => setOpen(false)} label="سحب الرصيد">
         <div className="stack gap12">
           <h2 className="h3">سحب الرصيد</h2>
@@ -97,15 +112,19 @@ export function CaptainWallet() {
             <input className="num" inputMode="numeric" dir="ltr" value={amount} onChange={(ev) => { setAmount(ev.target.value.replace(/\D/g, '')); setErr(''); }} aria-label="المبلغ" />
             <span>د.ع · رصيدك {money(e.balance)}</span>
           </div>
-          <div className="seg">
-            {['زين كاش', 'كي كارد', 'حساب مصرفي'].map((m) => (
-              <button key={m} className={method === m ? 'on' : ''} onClick={() => { setMethod(m); setErr(''); }}>{m}</button>
-            ))}
-          </div>
-          <input className="input" dir="ltr" inputMode="numeric" style={{ textAlign: 'left' }} placeholder={method === 'زين كاش' ? '07XX XXX XXXX' : 'رقم البطاقة أو الحساب'} value={acc} onChange={(ev) => { setAcc(ev.target.value); setErr(''); }} />
+          {card ? <div className="row gap10 small"><Icon name="card" size={20} /> <span className="grow">يوصل لبطاقتك <b className="num" dir="ltr">{card.first4} ••••</b></span><span className="muted">{card.brand}</span></div> : null}
           {err ? <div className="err">{err}</div> : null}
           <button className="btn" onClick={withdraw}>اطلب السحب</button>
           <div className="tiny muted center">نسخة تجريبية: ما ينحوّل مبلغ حقيقي.</div>
+        </div>
+      </Sheet>
+
+      <Sheet open={remove} onClose={() => setRemove(false)} label="حذف البطاقة">
+        <div className="stack gap12">
+          <h2 className="h2">نحذف البطاقة؟</h2>
+          <p className="muted" style={{ margin: 0 }}>ما تگدر تسحب أرباحك إلا تضيف بطاقة ثانية.</p>
+          <button className="btn" style={{ background: 'var(--alert)' }} onClick={() => { set({ captainCard: null }); setRemove(false); showToast('انحذفت البطاقة'); }}>إي، احذفها</button>
+          <button className="btn soft" onClick={() => setRemove(false)}>لا</button>
         </div>
       </Sheet>
     </div>

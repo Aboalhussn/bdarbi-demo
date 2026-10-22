@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { longDate, money } from '../data';
 import { Icon, Logo } from '../icons';
-import { tripOf, useStore } from '../store';
+import { tripOf, useStore, type SavedCard } from '../store';
 import { Sheet, TopBar } from '../ui';
 import { PhoneField, phoneError } from './Welcome';
 import { captainInfo } from '../captain';
@@ -266,14 +266,22 @@ function luhn(digits: string) {
   return sum % 10 === 0;
 }
 
-export function CardVisual({ first4, holder, expiry, brand }: { first4: string; holder: string; expiry: string; brand: string }) {
+export function CardVisual({ first4, holder, expiry, brand, balance }: { first4: string; holder: string; expiry: string; brand: string; balance?: number }) {
   return (
     <div className="bank-card">
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <div className="row gap8"><Logo size={30} /><b style={{ fontFamily: 'var(--display)' }}>بدربي</b></div>
         <span className="bold" style={{ fontSize: 14, opacity: 0.9 }}>{brand}</span>
       </div>
-      <div className="chip-gold" />
+      {balance === undefined ? <div className="chip-gold" /> : (
+        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="chip-gold" style={{ margin: 0 }} />
+          <div style={{ textAlign: 'left' }}>
+            <div className="tiny" style={{ opacity: 0.75 }}>رصيدك</div>
+            <div className="num" style={{ fontWeight: 800, fontSize: 26, lineHeight: 1.2 }}>{money(balance)} <span style={{ fontSize: 13 }}>د.ع</span></div>
+          </div>
+        </div>
+      )}
       <div className="card-num num">{first4} •••• •••• ••••</div>
       <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <div>
@@ -289,10 +297,8 @@ export function CardVisual({ first4, holder, expiry, brand }: { first4: string; 
   );
 }
 
-export function Wallet() {
-  const { card, set, bookings, go, showToast } = useStore();
-  const [adding, setAdding] = useState(false);
-  const [remove, setRemove] = useState(false);
+/** Add / replace a card — shared by the passenger and captain wallets. */
+export function CardSheet({ open, onClose, onSave, replacing, note }: { open: boolean; onClose: () => void; onSave: (c: SavedCard) => void; replacing: boolean; note?: string }) {
   const [num, setNum] = useState('');
   const [holder, setHolder] = useState('');
   const [exp, setExp] = useState('');
@@ -317,13 +323,66 @@ export function Wallet() {
     if (!/^\d{3,4}$/.test(cvv)) e.cvv = 'CVV من 3 أرقام';
     setErrs(e);
     if (Object.keys(e).length) return;
-    set({ card: { first4: digits.slice(0, 4), holder: holder.trim().toUpperCase(), expiry: exp, brand: cardBrand(digits), addedAt: Date.now() } });
-    setAdding(false);
+    onSave({ first4: digits.slice(0, 4), holder: holder.trim().toUpperCase(), expiry: exp, brand: cardBrand(digits), addedAt: Date.now() });
     setNum('');
     setCvv('');
-    showToast('انضافت البطاقة ✓');
   };
 
+  return (
+  <Sheet open={open} onClose={onClose} label="إضافة بطاقة">
+    <div className="stack gap6">
+      <div className="row" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
+        <h2 className="h3">{replacing ? 'بدّل البطاقة' : 'ضيف بطاقة'}</h2>
+        <button
+          className="pill gold"
+          style={{ height: 34, padding: '0 14px' }}
+          onClick={() => {
+            const y = (new Date().getFullYear() + 3) % 100;
+            setNum('4111 1111 1111 1111');
+            setHolder('ALI HASSAN');
+            setExp(`12/${String(y).padStart(2, '0')}`);
+            setCvv('123');
+            setErrs({});
+          }}
+        >
+          <Icon name="card" size={16} />&nbsp;بطاقة تجريبية
+        </button>
+      </div>
+      <CardVisual first4={digits.slice(0, 4).padEnd(4, '•')} holder={holder.toUpperCase()} expiry={exp} brand={cardBrand(digits)} />
+      <div className="field" style={{ marginTop: 12 }}>
+        <label htmlFor="cnum">رقم البطاقة</label>
+        <input id="cnum" className={`input num ${errs.num ? 'bad' : ''}`} inputMode="numeric" dir="ltr" style={{ textAlign: 'left', letterSpacing: 1.5 }} placeholder="0000 0000 0000 0000" value={num} onChange={(e) => setNum(fmtNum(e.target.value))} />
+        <div className="err">{errs.num}</div>
+      </div>
+      <div className="field">
+        <label htmlFor="chold">الاسم على البطاقة</label>
+        <input id="chold" className={`input ${errs.holder ? 'bad' : ''}`} dir="ltr" style={{ textAlign: 'left', textTransform: 'uppercase' }} placeholder="ALI HASSAN" value={holder} onChange={(e) => setHolder(e.target.value.replace(/[^A-Za-z ]/g, ''))} />
+        <div className="err">{errs.holder}</div>
+      </div>
+      <div className="row gap10" style={{ alignItems: 'flex-start' }}>
+        <div className="field grow">
+          <label htmlFor="cexp">تنتهي</label>
+          <input id="cexp" className={`input num ${errs.exp ? 'bad' : ''}`} inputMode="numeric" dir="ltr" style={{ textAlign: 'left' }} placeholder="MM/YY" value={exp} onChange={(e) => setExp(fmtExp(e.target.value))} />
+          <div className="err">{errs.exp}</div>
+        </div>
+        <div className="field grow">
+          <label htmlFor="ccvv">CVV</label>
+          <input id="ccvv" type="password" className={`input num ${errs.cvv ? 'bad' : ''}`} inputMode="numeric" dir="ltr" style={{ textAlign: 'left' }} placeholder="•••" maxLength={4} value={cvv} onChange={(e) => setCvv(e.target.value.replace(/\D/g, ''))} />
+          <div className="err">{errs.cvv}</div>
+        </div>
+      </div>
+      <div className="tiny muted row gap6"><Icon name="lock" size={14} /> نحفظ أول 4 أرقام بس. ما نحفظ باقي الرقم ولا الـ CVV.</div>
+      {note ? <div className="tiny muted">{note}</div> : null}
+      <button className="btn" style={{ marginTop: 8 }} onClick={save}>حفظ البطاقة</button>
+    </div>
+  </Sheet>
+  );
+}
+
+export function Wallet() {
+  const { card, set, bookings, go, showToast } = useStore();
+  const [adding, setAdding] = useState(false);
+  const [remove, setRemove] = useState(false);
   // Every booking is a payment; a cancelled one also shows its refund.
   const ops = bookings
     .flatMap((b) => {
@@ -391,52 +450,7 @@ export function Wallet() {
         )}
       </div>
 
-      <Sheet open={adding} onClose={() => setAdding(false)} label="إضافة بطاقة">
-        <div className="stack gap6">
-          <div className="row" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
-            <h2 className="h3">{card ? 'بدّل البطاقة' : 'ضيف بطاقة'}</h2>
-            <button
-              className="pill gold"
-              style={{ height: 34, padding: '0 14px' }}
-              onClick={() => {
-                const y = (new Date().getFullYear() + 3) % 100;
-                setNum('4111 1111 1111 1111');
-                setHolder('ALI HASSAN');
-                setExp(`12/${String(y).padStart(2, '0')}`);
-                setCvv('123');
-                setErrs({});
-              }}
-            >
-              <Icon name="card" size={16} />&nbsp;بطاقة تجريبية
-            </button>
-          </div>
-          <CardVisual first4={digits.slice(0, 4).padEnd(4, '•')} holder={holder.toUpperCase()} expiry={exp} brand={cardBrand(digits)} />
-          <div className="field" style={{ marginTop: 12 }}>
-            <label htmlFor="cnum">رقم البطاقة</label>
-            <input id="cnum" className={`input num ${errs.num ? 'bad' : ''}`} inputMode="numeric" dir="ltr" style={{ textAlign: 'left', letterSpacing: 1.5 }} placeholder="0000 0000 0000 0000" value={num} onChange={(e) => setNum(fmtNum(e.target.value))} />
-            <div className="err">{errs.num}</div>
-          </div>
-          <div className="field">
-            <label htmlFor="chold">الاسم على البطاقة</label>
-            <input id="chold" className={`input ${errs.holder ? 'bad' : ''}`} dir="ltr" style={{ textAlign: 'left', textTransform: 'uppercase' }} placeholder="ALI HASSAN" value={holder} onChange={(e) => setHolder(e.target.value.replace(/[^A-Za-z ]/g, ''))} />
-            <div className="err">{errs.holder}</div>
-          </div>
-          <div className="row gap10" style={{ alignItems: 'flex-start' }}>
-            <div className="field grow">
-              <label htmlFor="cexp">تنتهي</label>
-              <input id="cexp" className={`input num ${errs.exp ? 'bad' : ''}`} inputMode="numeric" dir="ltr" style={{ textAlign: 'left' }} placeholder="MM/YY" value={exp} onChange={(e) => setExp(fmtExp(e.target.value))} />
-              <div className="err">{errs.exp}</div>
-            </div>
-            <div className="field grow">
-              <label htmlFor="ccvv">CVV</label>
-              <input id="ccvv" type="password" className={`input num ${errs.cvv ? 'bad' : ''}`} inputMode="numeric" dir="ltr" style={{ textAlign: 'left' }} placeholder="•••" maxLength={4} value={cvv} onChange={(e) => setCvv(e.target.value.replace(/\D/g, ''))} />
-              <div className="err">{errs.cvv}</div>
-            </div>
-          </div>
-          <div className="tiny muted row gap6"><Icon name="lock" size={14} /> نحفظ أول 4 أرقام بس. ما نحفظ باقي الرقم ولا الـ CVV.</div>
-          <button className="btn" style={{ marginTop: 8 }} onClick={save}>حفظ البطاقة</button>
-        </div>
-      </Sheet>
+      <CardSheet open={adding} onClose={() => setAdding(false)} replacing={!!card} onSave={(c) => { set({ card: c }); setAdding(false); showToast('انضافت البطاقة ✓'); }} />
 
       <Sheet open={remove} onClose={() => setRemove(false)} label="حذف البطاقة">
         <div className="stack gap12">
