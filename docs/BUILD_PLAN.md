@@ -28,7 +28,7 @@ STACK
 
 NO FAKE DATA — LAUNCH-READY RULES
 - Never create demo, sample or seed content: no fake trips, garages, hotels, users, bookings, reviews, ratings, coupons or numbers. Every list starts empty and shows its empty state. All content is created by real users and by the admin.
-- Only static reference data is allowed: Iraq's governorates/cities, payment method names, document types.
+- Only static reference data is allowed: Iraq's governorates/cities, document types.
 - The ONLY seeded record is the admin account, created by a management command from environment variables:
     ADMIN_NAME, ADMIN_PHONE, ADMIN_PASSWORD
   The values come from the owner's .env, never from code, tests or git. The admin signs in to the partner app (كابتن بدربي) and to admin-web.
@@ -48,7 +48,7 @@ PRODUCT RULES (never break these)
 - A solo traveller books 1 seat; a family booking takes several seats together. Each seat gets a passenger name. Ladies' seats are locked for men.
 - A captain has one active trip at a time; an office can run many at once.
 - A captain registers their vehicle once; it's locked after approval. Captains upload driving licence (front + back) and the vehicle's annual registration, then wait for admin approval. Offices also need admin approval.
-- Commission: 5% on electronic payments only, none on cash.
+- Payments at launch are CASH ONLY. There are no payment-company partners yet, so don't integrate ZainCash, cards or any gateway, and don't ask for gateway keys. Bdarbi earns from subscriptions that captains and offices pay. The admin sets plans and prices and records each payment. A captain or office without an active subscription can't create or publish trips. Keep the code ready to add electronic payments later (a 5% commission on electronic payments only, once a provider exists).
 - Captains see only their overall rating; the rating ranks trips in search.
 - Hotels: no in-app booking yet. The book button opens WhatsApp or a call to the hotel's own number.
 - Every screen has empty, loading, error and success states. Dark mode is a designed palette (see the prototype's src/dark-manual.css), never colour inversion. Photos, the flag, maps and QR codes keep natural colours.
@@ -118,7 +118,7 @@ Endpoints under /api/v1/auth:
 - POST /forgot/start {phone}, POST /forgot/verify {phone, code} → reset token, POST /forgot/reset {reset_token, new_password}.
 - POST /refresh (rotating refresh tokens, reuse detection), POST /logout.
 - GET/PATCH /me (name, avatar, gender, lang, dark_mode, notif_on).
-- DELETE /me {"confirm": "احذف"} → anonymise personal data, cancel and refund future bookings.
+- DELETE /me {"confirm": "احذف"} → anonymise personal data, cancel future bookings.
 
 SMS: an SmsProvider interface with one real implementation for an Iraqi SMS/WhatsApp OTP gateway.
 STOP and ask the owner which provider to use and for its credentials (SMS_PROVIDER, SMS_API_KEY, SMS_SENDER_ID…) before writing that implementation. Tests use a test double inside the test suite only.
@@ -148,7 +148,7 @@ Models:
 - Garage: name, city, address, lat, lng, is_24h, opens_at, closes_at, phone, services[], active. Created by the admin only.
 - Vehicle: owner_type captain|office, owner_id, kind [باص, كوستر, سيارة, VIP], model, plate, seats, color, year, seat_layout json, locked_at.
 - Trip: operator_type captain|office, operator_id, driver_id, vehicle_id, from_city, to_city, garage_id, end_garage_id, depart_at, arrive_at, price, platform, status [scheduled, started, arrived, cancelled], delay_min, started_at, arrived_at, ladies_seats int[].
-- Booking: code (6 chars, unique), trip_id, user_id, seats int[], passengers [{seat, name, gender}], is_family, subtotal, discount, total, pay_method [cash, zaincash, card, wallet], pay_status, status [pending_payment, confirmed, cancelled], cancelled_by, boarded_at, created_at.
+- Booking: code (6 chars, unique), trip_id, user_id, seats int[], passengers [{seat, name, gender}], is_family, subtotal, discount, total, pay_method [cash] (enum, ready for more later), cash_collected_at, status [confirmed, cancelled], cancelled_by, boarded_at, created_at.
 - Seat holds in Redis: trip_id + seat → user_id, 7-minute TTL.
 
 Rules, in a BookingService with tests:
@@ -157,8 +157,9 @@ Rules, in a BookingService with tests:
 - A captain can't have two active trips; an office can, with overlap checks per vehicle and per driver.
 - Search hides departed trips (now > depart_at − 10 min) and full trips.
 - Cancellation:
-  - A passenger can cancel until departure; the refund goes back to the same method.
-  - A captain or office cancelling a trip cancels and refunds every booking on it, and notifies every passenger.
+  - A passenger can cancel until departure (cash, so nothing to refund).
+  - A captain or office cancelling a trip cancels every booking on it and notifies every passenger.
+- Only operators with an active subscription can create or publish trips (Phase 4).
 
 Endpoints /api/v1:
 - GET /cities, GET /garages
@@ -192,9 +193,9 @@ Phase 3: the passenger app بدربي. Match the prototype's screens and Iraqi-A
    - Start: splash → onboarding (location, notifications) → login (phone + password, «نسيت كلمة السر؟») → register → OTP.
    - Home: greeting, rewards card, city chips, today's trips, hotels banner, coaster, garages.
    - Pick trip: city chips and day chips in the same style; only available trips, best rated first.
-   - Booking: seats (solo/family, legend, ladies' seats) → checkout (name per seat, gender, coupon, payment method) → ticket (QR, save image, share, track).
+   - Booking: seats (solo/family, legend, ladies' seats) → checkout (name per seat, gender, coupon, «نقداً بالكراج» as the only payment method) → ticket (QR, save image, share, track).
    - After booking: my trips (upcoming / past / cancelled) → live tracking map → rate trip.
-   - Account: profile, personal info, wallet, rewards & coupons, notifications, settings (language, notifications + test, dark mode, delete account), help & support (FAQ, report a problem, round chat button), privacy policy, terms.
+   - Account: profile, personal info, rewards & coupons, notifications, settings (language, notifications + test, dark mode, delete account), help & support (FAQ, report a problem, round chat button), privacy policy, terms.
 3. Error screens:
    - global "no internet" overlay
    - trip cancelled
@@ -215,35 +216,47 @@ Done when:
 
 ---
 
-## Phase 4 — Payments, wallet and commission
+## Phase 4 — Cash payments and operator subscriptions
 
 ```text
-Phase 4: real payments.
+Phase 4: payments for launch. Bdarbi has NO payment-company partners yet, so all passenger payments are cash. The company earns from subscriptions that captains and offices pay. Don't integrate ZainCash, cards or any gateway now, and don't ask the owner for gateway keys.
 
-1. PaymentProvider interface with real implementations:
-   - Cash: confirms the booking; no commission.
-   - ZainCash: merchant API. Create transaction → user pays → signed callback → verify → confirm booking.
-   - Card: Qi Card / Mastercard gateway.
-   STOP and ask the owner for: ZainCash merchant ID, secret, MSISDN and the sandbox/live URLs; the card gateway choice and its credentials. Put them in .env (ZAINCASH_*, CARD_*).
-2. Payment model: booking_id, provider, amount, status [pending, paid, failed, refunded], provider_ref, raw_callback, created_at.
-   - Callbacks are idempotent.
-   - A pending electronic booking holds its seats 7 minutes, then expires.
-3. Refunds go through the same provider; cash refunds are recorded for the garage.
-4. Ledger:
-   - WalletAccount for each captain, office and the platform.
-   - Double-entry LedgerEntry.
-   - 5% commission on electronic payments only.
-5. Captain/office wallet: a payout card must be added first; a Bdarbi card shows the balance; the withdraw button is fixed at the bottom. Withdraw requests are approved by the admin (Phase 7).
-6. Passenger app payment screen: method → confirmation/OTP → processing → success or failure → receipt with transaction number.
-7. Tests (with provider test doubles inside the test suite): paid, failed, double callback, refund, commission maths, ledger always balances.
+1. Passenger payment = cash only.
+   - Checkout shows one method: «نقداً بالكراج» (cash to the captain / at the garage). A booking is confirmed when it's created.
+   - The ticket and receipt show the amount due in cash.
+   - Keep a PaymentMethod enum and a PaymentProvider interface with only the Cash implementation, so electronic methods can be added later without schema changes. Electronic methods stay disabled behind a setting the admin can't turn on until a provider exists.
+   - No commission on bookings.
+   - The captain marks cash collected when boarding (optional toggle on the scan result).
+2. Operator subscriptions (captains and offices), fully controlled by the admin:
+   - SubscriptionPlan: name, applies_to [captain, office], price (IQD), duration_days, max_active_trips (office plans), grace_days, active.
+   - Subscription: operator_type, operator_id, plan_id, starts_at, ends_at, status [active, grace, expired, suspended], created_by_admin.
+   - SubscriptionPayment: subscription_id, amount, method [cash, transfer, other], reference/note, received_by_admin, received_at, receipt number.
+   - The admin records each payment by hand. Recording a payment activates or extends the subscription.
+   - Admin settings (with defaults the admin can change):
+     - whether new captains/offices get a free trial, and how many days
+     - grace days after expiry
+     - what an expired operator can't do
+3. Enforcement in the TripService and API, with tests:
+   - Without an active subscription (or inside the grace period), a captain or office CANNOT create new trips or packages, and can't publish scheduled ones. The API returns a clear Arabic error, e.g. «اشتراكك منتهي، جدّده حتى تگدر تنزل رحلات».
+   - Trips that already have passenger bookings are NOT cancelled automatically when a subscription expires, so passengers aren't stranded. The admin can suspend them manually.
+   - Office drivers inherit their office's subscription status.
+4. Operator side (partner app):
+   - A subscription card on home and profile: plan, days left, status pill (active / ending soon / expired).
+   - A clear blocked state on the + / create-trip button with the reason and how to renew (contact admin / support chat).
+   - Notifications 7 days, 3 days and 1 day before expiry, and on expiry.
+5. Earnings for captains/offices: cash collected per trip, by day / week / month (no wallet withdrawals, since the money is collected in cash directly).
+6. Tests:
+   - plan changes
+   - payment recording extends the end date correctly
+   - grace period
+   - blocked trip creation when expired
+   - existing bookings untouched on expiry
 
 Done when:
-- A sandbox ZainCash payment confirms a booking end to end.
-- The ledger balances.
-- Production refuses to start without live payment keys.
+- A passenger can book and pay cash end to end.
+- An admin can create plans, record a captain's payment and see the captain unblocked.
+- An expired captain is blocked from adding trips, with the right message.
 ```
-
----
 
 ## Phase 5 — Captain app (Flutter, partner flavor)
 
@@ -260,7 +273,7 @@ Backend:
 - Live location: POST every 10 s while started; broadcast on SocketIO room trip:{id}; last point kept in Redis.
 - Earnings by day / week / month.
 - Overall rating.
-- Challenges (created by the admin): progress, then claim → credited to the wallet.
+- Challenges (created by the admin): progress, then claim. The reward is recorded for the admin to pay out (e.g. as subscription credit or cash). The admin chooses how.
 
 App (captain role):
 - Login → pending screen until approved.
@@ -269,7 +282,7 @@ App (captain role):
   - Passengers: list, plus new requests from the top button.
   - Scan: camera QR + manual code, then a result screen.
   - Achievements: gold amounts; ready ones turn green.
-  - Profile: wallet, earnings, documents, settings, help.
+  - Profile: subscription, earnings, documents, settings, help.
 - Background location while a trip is started (Android foreground-service notice and permissions).
 
 Done when:
@@ -292,7 +305,7 @@ Backend:
 - Packages (سفرات المكاتب):
   - Fields: title, type, up to 5 photos, from/to, meeting garage + note, date, nights, what's included (chips), day-by-day plan (day title + items), adult and child price, single supplement, seats, description.
   - Status: pending → published by the admin.
-  - Package bookings: lead traveller, travellers count, payment.
+  - Package bookings: lead traveller, travellers count, paid in cash to the office.
 - Office stats: today's sales, bookings per trip, weekly chart.
 
 App:
@@ -310,7 +323,7 @@ Done when: an office publishes a package → the admin approves it → a passeng
 Phase 7: admin. The only admin is the account created from ADMIN_NAME / ADMIN_PHONE / ADMIN_PASSWORD. Admin endpoints require role admin, and every write goes to an audit log (who, what, before, after, when).
 
 Backend /api/v1/admin:
-- Overview: today's bookings, active trips, published packages, today's commission, a "needs attention" list, a weekly bookings chart. All computed from real data, zero when empty.
+- Overview: today's bookings, active trips, published packages, active / expiring / expired subscriptions, subscription income this month, a "needs attention" list, a weekly bookings chart. All computed from real data, zero when empty.
 - Join requests (captains, offices) with documents: approve, or reject with a reason. The applicant is notified.
 - Offices list and details.
 - Bookings: search by booking code. The detail shows:
@@ -320,12 +333,17 @@ Backend /api/v1/admin:
   - passenger, seats, payment and rating
 - Package review queue: publish or reject.
 - Support inbox: threads from passengers, captains and offices; replies appear in the user's in-app chat.
-- Finance: withdrawal requests (approve → paid), commission totals, exports to CSV.
+- Subscriptions:
+  - Plans: create, edit, enable or disable, with price, duration, role and office trip limits.
+  - Per-operator page: current plan, end date, payment history. Record a payment (amount, method, note) → prints a receipt number. Extend, suspend or reactivate.
+  - Lists: active, ending within 7 days, expired.
+  - Settings: free trial days, grace days, what expired operators can't do.
+  - Income report by month, exported to CSV.
 - Challenges for captains (title, reward, target) → notification to captains.
 - Garages: add/edit with a map pin, hours (24h or open/close), services.
 - Hotels: add/edit with photo, city, landmark, address, booking phone + WhatsApp, stars, check-in/out times, amenities, rooms with prices, about, notes for guests.
 - Coupons: code (typed or generated), percent or fixed amount, max discount, audience (all / new users / users with N+ trips / specific phones), expiry, active switch. Validated at checkout.
-- Admin settings: language, dark mode, which alerts to receive (join requests, support, withdrawals, packages).
+- Admin settings: language, dark mode, which alerts to receive (join requests, support, expiring subscriptions, packages).
 
 admin-web/:
 - Website layout with a sidebar; Settings sits just above the account/logout card.
@@ -357,12 +375,13 @@ Phase 8: messaging.
 2. notify(user_ids, type, title, body, link):
    - Stores an in-app notification and sends a push.
    - Respects notif_on and the admin's alert settings.
-   - Iraqi-Arabic templates for: booking confirmed, payment failed, trip delayed / started / arrived / cancelled, boarding confirmed, rate your trip, new challenge, request approved / rejected, withdrawal paid, support reply, package approved / rejected, new join request (admin).
+   - Iraqi-Arabic templates for: booking confirmed, trip delayed / started / arrived / cancelled, boarding confirmed, rate your trip, new challenge, request approved / rejected, subscription ending soon / expired / renewed, support reply, package approved / rejected, new join request (admin).
 3. Scheduled jobs (RQ scheduler):
    - reminders 2 h and 30 min before departure
    - expire unpaid bookings
    - rating prompt after arrival
    - daily earnings summary for captains
+   - subscription expiry reminders (7, 3 and 1 days before, and on expiry) and automatic status change to grace / expired
 4. SocketIO rooms per trip (status + location) and per support thread; the apps reconnect with backoff.
 5. Support chat: text + image messages, read state, the round chat button in Help. «بلّغ عن مشكلة» sends the category + booking code.
 6. A notification centre in both apps, and a test-notification button in settings.
@@ -435,7 +454,7 @@ Phase 11: hardening.
    - Flutter integration tests for passenger (register → book → pay → ticket → board → rate), captain, office and admin flows.
    - admin-web tests for approvals, coupons and hotels.
 4. Load test (locust): 500 concurrent searches and 50 concurrent bookings on one trip, with zero double-booked seats.
-5. Monitoring: Sentry in the API, both apps and admin-web, request metrics, and alerts on payment-callback failures.
+5. Monitoring: Sentry in the API, both apps and admin-web, request metrics, and error-rate alerts.
    STOP and ask the owner for the Sentry DSNs (or approval to create the project).
 
 Done when:
@@ -456,7 +475,7 @@ STOP and ask the owner for each of these:
 - Domain and DNS access (e.g. bdarbi.iq: api., admin.).
 - Google Play developer account and Apple developer account.
 - App signing keys: upload keystore and its passwords, or permission to generate them and where to store them safely.
-- Live keys for SMS, payments, maps, Firebase and storage.
+- Live keys for SMS, maps, Firebase and storage.
 - Store listing text and the support email/phone.
 
 Then:
@@ -464,7 +483,7 @@ Then:
    - nginx + Let's Encrypt
    - daily Postgres backups to off-site storage, with one tested restore
    - zero-downtime deploy from GitHub Actions on a version tag
-2. Two environments, staging and production, each with its own database, Firebase project and payment keys (sandbox for staging, live for production).
+2. Two environments, staging and production, each with its own database and Firebase project.
 3. Run `flask create-admin` on production with the owner's ADMIN_NAME / ADMIN_PHONE / ADMIN_PASSWORD from the server's .env. No other data is seeded.
 4. admin-web at admin.<domain>; admin login only.
 5. Mobile releases:
@@ -472,7 +491,7 @@ Then:
    - Google Play: internal → closed → production.
    - App Store: TestFlight → review.
    - Account deletion, privacy labels and permission explanations completed.
-6. docs/RUNBOOK.md: deploy, rollback, restore a backup, rotate keys, handle a payment-provider outage, add a new admin.
+6. docs/RUNBOOK.md: deploy, rollback, restore a backup, rotate keys, record a subscription payment, add a new admin.
 
 Done when:
 - Production is live and empty except for the admin.
